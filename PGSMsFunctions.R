@@ -9,6 +9,41 @@
 #'  "Not in" function
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
+#****************************************************
+#'  Annealing schedule ("zeta") for improved target distributions at time t
+#'  
+#' @param t current time [scalar]
+#' @param n maximum time [scalar]
+#' @return annealing schedule [vector]
+zeta_t <- function(t, n)
+{
+  (t - 2) / (n - 2)
+}
+
+
+#****************************************************
+#'  Dirichlet process prior functions
+tau1 <- function(alpha, j)
+{
+  alpha^j
+}
+
+tau2 <- function(j)
+{
+  factorial(j-1)
+}
+
+
+#****************************************************
+#'  Effective sample size (ESS)
+#'  @param log.norm.weights log of the normalised weights [vector]
+#'  @param N number of particles [scalar]
+#'  @return ESS
+ESS <- function(log.norm.weights, N)
+{
+  ess <- exp(-log(N) - logSumExp(2*log.norm.weights))
+  ifelse(is.nan(ess), 0, ess)
+}
 
 #****************************************************
 #'  Select anchors
@@ -572,43 +607,6 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.c
   log.unnormalised.weight <- log.previous.weight + log.weight.update
   
   return(log.unnormalised.weight)
-}
-
-
-#****************************************************
-#'  Annealing schedule ("zeta") for improved target distributions at time t
-#'  
-#' @param t current time [scalar]
-#' @param n maximum time [scalar]
-#' @return annealing schedule [vector]
-zeta_t <- function(t, n)
-{
-  (t - 2) / (n - 2)
-}
-
-
-#****************************************************
-#'  Dirichlet process prior functions
-tau1 <- function(alpha, j)
-{
-  alpha^j
-}
-
-tau2 <- function(j)
-{
-  factorial(j-1)
-}
-  
-
-#****************************************************
-#'  Effective sample size (ESS)
-#'  @param log.norm.weights log of the normalised weights [vector]
-#'  @param N number of particles [scalar]
-#'  @return ESS
-ESS <- function(log.norm.weights, N)
-{
-  ess <- exp(-log(N) - logSumExp(2*log.norm.weights))
-  ifelse(is.nan(ess), 0, ess)
 }
 
 #****************************************************
