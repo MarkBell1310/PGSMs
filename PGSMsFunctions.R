@@ -663,6 +663,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   # define weights at t=1
   log.un.weights <- rep(log(1), N)
   log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
+  merge.indices <- NULL
 
   # Run SMC
   for(t in 2:n) # time iterations
@@ -675,7 +676,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       log.un.weights <- rep(log(1), N) # reset the weights
     }
 
-    for(p in 1:N) # particle iterations
+    for(p in 1:N) 
     {
       # proposal allocation
       if(p >= 2)
@@ -685,11 +686,41 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
                                     adj, tau1, tau2, t, n, alpha, beta1, beta2)
       }
       
-      # unnormalised weights
-      log.un.weights[p] <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
-                                                 log.previous.weight = log.un.weights[p], 
-                                                 all.clusters, non.c.bar, adj, tau1, tau2, 
-                                                 t, n, alpha, beta1, beta2)
+      # unnormalised weights: if we have < 2 merge particles
+      if(length(merge.indices) < 2)
+      {
+        log.un.weights[p] <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
+                                                   log.previous.weight = log.un.weights[p], 
+                                                   all.clusters, non.c.bar, adj, tau1, tau2, 
+                                                   t, n, alpha, beta1, beta2)
+      }
+      
+      # unnormalised weights: if we have 2 or more merge particles
+      if(length(merge.indices) >= 2)
+      {
+        # compute weight for 1st merge particle AND weights for split particles
+        # (this will always include particle p = 1)
+        if(p == merge.indices[1] || p %in% split.indices)
+        {
+          log.un.weights[p] <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
+                                                       log.previous.weight = log.un.weights[p], 
+                                                       all.clusters, non.c.bar, adj, tau1, tau2, 
+                                                       t, n, alpha, beta1, beta2)
+        }
+
+        # assign weight of 1st merge particle to all other merge particles
+        if(p %in% merge.indices[-1])
+        {
+          log.un.weights[p] <- log.un.weights[merge.indices[1]]
+        }
+      }
+    }
+    
+    # only need to calculate weight of 1st merge particle
+    if(t == 2)
+    {
+      merge.indices <- which(particles[1:n, t] == 2) 
+      split.indices <- which(1:n %!in% merge.indices  == TRUE)
     }
   }
   

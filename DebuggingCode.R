@@ -1,7 +1,7 @@
 #original.clusters <- all.clusters
 #cluster.history <- lapply(1:n.iters, list)
 
-all.clusters
+all.clusters <- start.clusters
 
 s <- SelectAnchors(all.clusters)  # select anchors uniform
 s
