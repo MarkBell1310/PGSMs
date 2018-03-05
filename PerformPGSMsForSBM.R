@@ -5,6 +5,7 @@ rm(list = ls())
 library(Matrix)
 library(igraph)
 library(matrixStats)
+library(LaplacesDemon)
 source("PGSMsFunctions.R")
 #****************************************************
 
@@ -14,7 +15,7 @@ K <- 5  # no. clusters
 pref.matrix <- diag(K) # Bernoulli rates (K x K matrix)
 block.sizes <- rep(4, K) # no. nodes in each cluster (K length vector)
 sbm <- sample_sbm(n, pref.matrix, block.sizes, directed = FALSE, loops = FALSE); plot(sbm)
-start.clusters <- list(1:n)
+start.clusters <- list(1:n) # list of clusters
 adj <- as_adj(sbm)
 
 # PGSMs tuning parameters
