@@ -211,7 +211,7 @@ MapClustersToAllocations <- function(sigma, c.bar)
 #****************************************************
 #'  Count edges WITHIN the c.bar clusters
 #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
+#'
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @return list of "counts" and "max.counts" of edges  [list of vectors]
@@ -221,14 +221,14 @@ CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
   counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
   {
     # multiply by 0.5 since we don't want to double count
-    0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]]) 
+    0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]])
   })
-  
+
   max.counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
   {
     0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
   })
-  
+
   return(list("counts" = counts.within.c.bar.clusters,
               "max.counts" = max.counts.within.c.bar.clusters))
 }
@@ -236,7 +236,7 @@ CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
 #****************************************************
 #'  Count edges BETWEEN the c.bar clusters
 #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
+#'
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @return list of "counts" and "max.counts" of edges  [list of vectors]
@@ -245,15 +245,15 @@ CountEdgesBetweenCbarClusters <- function(c.bar.current, adj)
   # c.bar.current must have 2 clusters
   counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]])
   max.counts.between.c.bar.clusters <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
-  
+
   return(list("counts" = counts.between.c.bar.clusters,
               "max.counts" = max.counts.between.c.bar.clusters))
 }
-  
+
 #****************************************************
 #'  Count edges BETWEEN the c.bar and non.c.bar clusters
 #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
+#'
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
@@ -271,7 +271,7 @@ CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.ba
       return(c(sum(adj[c.bar.current[[1]], x]), sum(adj[c.bar.current[[2]], x])))
     }
   }))
-  
+
   # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
   max.counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
   {
@@ -284,32 +284,32 @@ CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.ba
       return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
     }
   }))
-  
+
   return(list("counts" = counts.between.c.bar.non.c.bar.clusters,
               "max.counts" = max.counts.between.c.bar.non.c.bar.clusters))
 }
-  
-  
+
+
 #****************************************************
 #'  Count ALL relevant edges - used in the likelihood calculation
 #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
+#'
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @return list of "counts" and "max.counts" of edges  [list of vectors]
-CountEdges <- function(c.bar.current, adj, non.c.bar)  
+CountEdges <- function(c.bar.current, adj, non.c.bar)
 {
   # This function needs to consider the following scenarios:
   # (1) nodes WITHIN clusters in c.bar.current
-  # (2) nodes BETWEEN clusters in c.bar.current (both clusters belong to c.bar) 
+  # (2) nodes BETWEEN clusters in c.bar.current (both clusters belong to c.bar)
   # (3) nodes BETWEEN c.bar clusters and non.c.bar clusters
 
   # SCEN (1): nodes within clusters in c.bar
   edges.within.c.bar.current <- CountEdgesWithinCbarClusters(c.bar.current, adj)
   counts.within.c.bar.current <- edges.within.c.bar.current$counts
   max.counts.within.c.bar.current <- edges.within.c.bar.current$max.counts
-  
+
   # SCEN (2): nodes between clusters in c.bar - c.bar must have 2 clusters
   if(length(c.bar.current) == 2)
   {
@@ -322,11 +322,11 @@ CountEdges <- function(c.bar.current, adj, non.c.bar)
     counts.between.c.bar.current <- NULL
     max.counts.between.c.bar.current <- NULL
   }
-  
+
   # SCEN (3): nodes between c.bar and non c.bar clusters
   if(length(non.c.bar) != 0)
   {
-    edges.between.c.bar.non.c.bar <- CountEdgesBetweenCbarAndNonCbarClusters(c.bar.current, 
+    edges.between.c.bar.non.c.bar <- CountEdgesBetweenCbarAndNonCbarClusters(c.bar.current,
                                                                              adj, non.c.bar)
     counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$counts
     max.counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$max.counts
@@ -344,7 +344,7 @@ CountEdges <- function(c.bar.current, adj, non.c.bar)
                                max.counts.between.c.bar.current,
                                max.counts.between.c.bar.non.c.bar)))
 }
-#CountEdgesBetweenClusters(all.clusters, c.bar, adj)  
+#CountEdges(c.bar.current, adj, non.c.bar)
 
 
 #****************************************************
