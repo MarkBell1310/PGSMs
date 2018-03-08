@@ -24,7 +24,7 @@ beta1 <- 1 # Flat uniform priors (McDaid: conjugate priors on the parameter for 
 beta2 <- 1
 N <- 20    # no. particles: (Bouchard uses 20)
 resampling.threshold <- 0.5
-n.iters <- 100000 
+n.iters <- 1000
 
 # perform PGSMs
 clusters <- start.clusters
@@ -37,4 +37,5 @@ for(i in 1:n.iters)
   num.clusters[i] <- length(clusters)
   print(num.clusters[i])
 }
-proc.time() - start
+(run.time <- proc.time() - start)
+
