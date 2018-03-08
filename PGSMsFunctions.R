@@ -325,6 +325,7 @@ PreComputeCumulativeSumOfEdgeCounts <- function(sigma, non.c.bar, adj)
 LogIntermediateTarget <- function(particle, all.clusters, c.bar.current, cum.sum.edge.counts, 
                                   cum.sum.max.counts, adj, tau1, tau2, t, alpha, beta1, beta2)
 {
+  # TO DO: this needs to be a product (or sum in log space) over separate c.bar clusters
   # log likelihood
   log.likelihood <-  log(beta(beta1 + cum.sum.edge.counts[t], 
                               cum.sum.max.counts[t] - cum.sum.edge.counts[t] + beta2)) - 
@@ -341,6 +342,25 @@ LogIntermediateTarget <- function(particle, all.clusters, c.bar.current, cum.sum
   return(log.int.target)
 }   
 
+
+# LogIntermediateTargetMerge <- function(particle, all.clusters, c.bar.current, cum.sum.edge.counts, 
+#                                   cum.sum.max.counts, adj, tau1, tau2, t, alpha, beta1, beta2)
+# {
+#   # TO DO: this needs to be a product (or sum in log space) over separate c.bar clusters
+#   # log likelihood
+#   log.likelihood <-  log(beta(beta1 + cum.sum.edge.counts[t], 
+#                               cum.sum.max.counts[t] - cum.sum.edge.counts[t] + beta2)) - 
+#                      log(beta(beta1, beta2))
+#   
+#   # log prior (3rd line is 0 if we split)
+#   log.prior <- log(tau1(alpha, length(c.bar.current) + length(all.clusters) 
+#                         - length(c.bar.current))) + log(tau2(length(c.bar.current[[1]])))  
+#   
+#   # intermediate target
+#   log.int.target <- log.prior + log.likelihood
+#   
+#   return(log.int.target)
+# }   
 
 
 #****************************************************
