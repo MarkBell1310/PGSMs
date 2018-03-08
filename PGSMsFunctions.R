@@ -344,7 +344,7 @@ CountEdges <- function(c.bar.current, adj, non.c.bar)
                                max.counts.between.c.bar.current,
                                max.counts.between.c.bar.non.c.bar)))
 }
-#CountEdgesBetweenClusters(all.clusters, c.bar, adj)  
+#CountEdges(c.bar.current, adj, non.c.bar)  
 
 
 #****************************************************
@@ -393,7 +393,8 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
   
   return(log.int.target)
 }   
-
+#LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
+#                      adj, tau1, tau2, t, alpha, beta1, beta2)
 
 
 #****************************************************
