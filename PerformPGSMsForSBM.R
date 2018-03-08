@@ -11,9 +11,9 @@ source("PGSMsFunctions.R")
 
 # generate SBM
 n <- 20 # no. nodes
-K <- 5  # no. clusters
+K <- 10  # no. clusters
 pref.matrix <- diag(K) # Bernoulli rates (K x K matrix)
-block.sizes <- rep(4, K) # no. nodes in each cluster (K length vector)
+block.sizes <- rep(n/K, K) # no. nodes in each cluster (K length vector)
 sbm <- sample_sbm(n, pref.matrix, block.sizes, directed = FALSE, loops = FALSE); plot(sbm)
 start.clusters <- list(1:n) # list of clusters
 adj <- as_adj(sbm)

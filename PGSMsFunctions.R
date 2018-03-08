@@ -207,146 +207,6 @@ MapClustersToAllocations <- function(sigma, c.bar)
 # MapClustersToAllocations(sigma = s.bar, c.bar)
 # p1
 
-
-#' #****************************************************
-#' #'  Count edges WITHIN the c.bar clusters
-#' #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#' #'  
-#' #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
-#' #' @param adj adjacency matrix of the SBM [matrix]
-#' #' @return list of "counts" and "max.counts" of edges  [list of vectors]
-#' CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
-#' {
-#'   # (allows for cases with 1 or 2 clusters in c.bar)
-#'   counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
-#'   {
-#'     # multiply by 0.5 since we don't want to double count
-#'     0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]]) 
-#'   })
-#'   
-#'   max.counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
-#'   {
-#'     0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
-#'   })
-#'   
-#'   return(list("counts" = counts.within.c.bar.clusters,
-#'               "max.counts" = max.counts.within.c.bar.clusters))
-#' }
-#' 
-#' #****************************************************
-#' #'  Count edges BETWEEN the c.bar clusters
-#' #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#' #'  
-#' #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
-#' #' @param adj adjacency matrix of the SBM [matrix]
-#' #' @return list of "counts" and "max.counts" of edges  [list of vectors]
-#' CountEdgesBetweenCbarClusters <- function(c.bar.current, adj)
-#' {
-#'   # c.bar.current must have 2 clusters
-#'   counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]])
-#'   max.counts.between.c.bar.clusters <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
-#'   
-#'   return(list("counts" = counts.between.c.bar.clusters,
-#'               "max.counts" = max.counts.between.c.bar.clusters))
-#' }
-#'   
-#' #****************************************************
-#' #'  Count edges BETWEEN the c.bar and non.c.bar clusters
-#' #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#' #'  
-#' #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
-#' #' @param adj adjacency matrix of the SBM [matrix]
-#' #' @param non.c.bar clusters that do not contain the anchors [list]
-#' #' @return list of "counts" and "max.counts" of edges  [list of vectors]
-#' CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.bar)
-#' {
-#'   counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
-#'   {
-#'     if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
-#'     {
-#'       return(sum(adj[c.bar.current[[1]], x]))
-#'     }
-#'     if(length(c.bar.current) == 2)
-#'     {
-#'       return(c(sum(adj[c.bar.current[[1]], x]), sum(adj[c.bar.current[[2]], x])))
-#'     }
-#'   }))
-#'   
-#'   # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
-#'   max.counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
-#'   {
-#'     if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
-#'     {
-#'       return(length(c.bar.current[[1]]) * length(x))
-#'     }
-#'     if(length(c.bar.current) == 2)
-#'     {
-#'       return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
-#'     }
-#'   }))
-#'   
-#'   return(list("counts" = counts.between.c.bar.non.c.bar.clusters,
-#'               "max.counts" = max.counts.between.c.bar.non.c.bar.clusters))
-#' }
-#'   
-#'   
-#' #****************************************************
-#' #'  Count ALL relevant edges - used in the likelihood calculation
-#' #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#' #'  
-#' #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
-#' #' @param adj adjacency matrix of the SBM [matrix]
-#' #' @param non.c.bar clusters that do not contain the anchors [list]
-#' #' @return list of "counts" and "max.counts" of edges  [list of vectors]
-#' CountEdges <- function(c.bar.current, adj, non.c.bar)  
-#' {
-#'   # This function needs to consider the following scenarios:
-#'   # (1) nodes WITHIN clusters in c.bar.current
-#'   # (2) nodes BETWEEN clusters in c.bar.current (both clusters belong to c.bar) 
-#'   # (3) nodes BETWEEN c.bar clusters and non.c.bar clusters
-#' 
-#'   # SCEN (1): nodes within clusters in c.bar
-#'   edges.within.c.bar.current <- CountEdgesWithinCbarClusters(c.bar.current, adj)
-#'   counts.within.c.bar.current <- edges.within.c.bar.current$counts
-#'   max.counts.within.c.bar.current <- edges.within.c.bar.current$max.counts
-#'   
-#'   # SCEN (2): nodes between clusters in c.bar - c.bar must have 2 clusters
-#'   if(length(c.bar.current) == 2)
-#'   {
-#'     edges.between.c.bar.current <- CountEdgesBetweenCbarClusters(c.bar.current, adj)
-#'     counts.between.c.bar.current <- edges.between.c.bar.current$counts
-#'     max.counts.between.c.bar.current <- edges.between.c.bar.current$max.counts
-#'   }
-#'   else
-#'   {
-#'     counts.between.c.bar.current <- NULL
-#'     max.counts.between.c.bar.current <- NULL
-#'   }
-#'   
-#'   # SCEN (3): nodes between c.bar and non c.bar clusters
-#'   if(length(non.c.bar) != 0)
-#'   {
-#'     edges.between.c.bar.non.c.bar <- CountEdgesBetweenCbarAndNonCbarClusters(c.bar.current, 
-#'                                                                              adj, non.c.bar)
-#'     counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$counts
-#'     max.counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$max.counts
-#'   }
-#'   else
-#'   {
-#'     counts.between.c.bar.non.c.bar <- NULL
-#'     max.counts.between.c.bar.non.c.bar <- NULL
-#'   }
-#' 
-#'   return(list("counts" = c(counts.within.c.bar.current,
-#'                            counts.between.c.bar.current,
-#'                            counts.between.c.bar.non.c.bar),
-#'               "max.counts" = c(max.counts.within.c.bar.current,
-#'                                max.counts.between.c.bar.current,
-#'                                max.counts.between.c.bar.non.c.bar)))
-#' }
-#' #CountEdgesBetweenClusters(all.clusters, c.bar, adj)  
-
-
 #****************************************************
 #'  Pre-compute edge counts between the c.bar and non.c.bar clusters
 #'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
@@ -360,7 +220,19 @@ PreComputeEdgeCountsBetweenCbarAndNonCbarClusters <- function(sigma, non.c.bar, 
   # compute edge counts between everything in c.bar and non.c.bar
   #  -in stages so that each increment can be added to a running total at time t
   #  -use sigma so elements of c.bar are in order that they're introduced to c.bar.current
-  all.edge.counts <- sapply(non.c.bar, function(x) {apply((adj[x, sigma]), 2, sum)})
+  all.edge.counts <- sapply(non.c.bar, function(x) 
+    {
+      if(length(x) > 1)
+      {
+        return(apply((adj[x, sigma]), 2, sum))
+      }
+      if(length(x) == 1)
+      {
+        return(adj[x, sigma])
+      }
+    })
+  
+  #all.edge.counts <- sapply(non.c.bar, function(x) {apply((adj[x, sigma]), 2, sum)})
   all.max.counts <- sapply(non.c.bar, function(x) {rep(length(x), length(sigma))})
   
   # sum up the counts for each non.c.bar cluster 
@@ -371,7 +243,6 @@ PreComputeEdgeCountsBetweenCbarAndNonCbarClusters <- function(sigma, non.c.bar, 
               "max.counts" = max.counts))
 }
 #PreComputeEdgeCountsBetweenCbarAndNonCbarClusters(sigma, non.c.bar, adj)
-
 
 #****************************************************
 #'  Pre-compute edge counts within AND between the c.bar clusters
@@ -397,16 +268,52 @@ PreComputeEdgeCountsWithinAndBetweenCbar <- function(sigma, adj)
 }
 #PreComputeEdgeCountsWithinAndBetweenCbar(sigma, adj)
 
+#****************************************************
+#'  Pre-compute cumulative sum of edge counts
+#'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
+#'
+#' @param sigma Uniform permutation on closure of anchors [vector]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @return vectors of "edge.counts" and "max.counts" of edges  [list of vectors]
+PreComputeCumulativeSumOfEdgeCounts <- function(sigma, non.c.bar, adj)
+{
+  # Note that although this version does not mention the 3 scenarios below 
+  # -all 3 scenarios are taken into account
+  # SCEN (1): nodes within clusters in c.bar
+  # SCEN (2): nodes between clusters in c.bar - c.bar must have 2 clusters
+  # SCEN (3): nodes between c.bar and non c.bar clusters
+  
+  c.bar.counts <- PreComputeEdgeCountsWithinAndBetweenCbar(sigma, adj)
+  
+  # if we have no non.c.bar clusters
+  if(length(non.c.bar) == 0)
+  {
+    return(list("cum.sum.edge.counts" = cumsum(c.bar.counts$edge.counts),
+                "cum.sum.max.counts" = cumsum(c.bar.counts$max.counts)))
+  }
+  
+  # otherwise compute non.c.bar edge counts 
+  non.c.bar.counts <- PreComputeEdgeCountsBetweenCbarAndNonCbarClusters(sigma, non.c.bar, adj)
+  
+  # add non.c.bar edge counts to total
+  cum.sum.edge.counts <- cumsum(c.bar.counts$edge.counts + non.c.bar.counts$edge.counts)
+  cum.sum.max.counts <- cumsum(c.bar.counts$max.counts + non.c.bar.counts$max.counts)
+  
+  return(list("cum.sum.edge.counts" = cum.sum.edge.counts,
+              "cum.sum.max.counts" = cum.sum.max.counts))
+}
+#PreComputeCumulativeSumOfEdgeCounts(sigma, non.c.bar, adj)
+
 
 #****************************************************
 #'  Log of intermediate target distribution at time t (Log "Gamma")
 #'
-#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
-#' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param all.clusters set of all clusters ("c") [list]
 #' @param c.bar.current clusters that contain the anchors, filled up to time t [list] 
-#' @param non.c.bar clusters not containing anchors [list]
+#' @param cum.sum.edge.counts cumulative sum of edge counts of c.bar.current [vector]
+#' @param cum.sum.max.counts cum sum of maximum possible edge counts of c.bar.current [vector]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
 #' @param tau2 factorisation of prior [function]
@@ -415,32 +322,21 @@ PreComputeEdgeCountsWithinAndBetweenCbar <- function(sigma, adj)
 #' @param beta1 beta function parameter
 #' @param beta2 beta function parameter
 #' @return log of intermeduate target distribution
-LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                  adj, tau1, tau2, t, alpha, beta1, beta2)
+LogIntermediateTarget <- function(particle, all.clusters, c.bar.current, cum.sum.edge.counts, 
+                                  cum.sum.max.counts, adj, tau1, tau2, t, alpha, beta1, beta2)
 {
-  # count relevant edges within and between clusters
-  edge.counts <- CountEdges(c.bar.current, adj, non.c.bar)  
-  counts <- edge.counts$counts
-  max.counts <- edge.counts$max.counts
-  n <- length(counts)
+  # log likelihood
+  log.likelihood <-  log(beta(beta1 + cum.sum.edge.counts[t], 
+                              cum.sum.max.counts[t] - cum.sum.edge.counts[t] + beta2)) - 
+                       log(beta(beta1, beta2))
   
-  # product of all between-cluster log likelihoods 
-  log.likelihoods <- rep(0, n)
-  for (i in 1:n)
-  {
-    log.likelihoods[i] <-  log(beta(beta1 + counts[i], max.counts[i] - counts[i] + beta2)) - 
-                            log(beta(beta1, beta2))
-  }
-  
-  sum.log.likelihoods <- sum(log.likelihoods)
-  
-  # prior (3rd line is 0 if we split)
+  # log prior (3rd line is 0 if we split)
   log.prior <- log(tau1(alpha, length(c.bar.current) + length(all.clusters) - length(c.bar.current))) +
                log(tau2(length(c.bar.current[[1]]))) + 
-               ifelse(particle[t] != 2, log(tau2(length(c.bar.current[[2]]))), 0) 
+               ifelse(particle[2] != 2, log(tau2(length(c.bar.current[[2]]))), 0) 
 
   # intermediate target
-  log.int.target <- log.prior + sum.log.likelihoods
+  log.int.target <- log.prior + log.likelihood
   
   return(log.int.target)
 }   
@@ -454,7 +350,8 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param all.clusters set of all clusters ("c") [list]
-#' @param non.c.bar clusters not containing anchors [list]
+#' @param cum.sum.edge.counts cumulative sum of edge counts of c.bar.current [vector]
+#' @param cum.sum.max.counts cum sum of maximum possible edge counts of c.bar.current [vector]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
 #' @param tau2 factorisation of prior [function]
@@ -464,8 +361,9 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
 #' @return log of improved intermeduate target distribution
-LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, 
-                                          adj, tau1, tau2, t, n, alpha, beta1, beta2)
+LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, cum.sum.edge.counts,
+                                          cum.sum.max.counts, adj, tau1, tau2, t, n, alpha, 
+                                          beta1, beta2)
 {
   # if t = 1,2 then "gamma hat" = 1 and log "gamma hat" = 0
   if(t <= 2)
@@ -473,20 +371,24 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
     return(0)
   }
   
-  # calculate "c.bar.current": c.bar at time t
-  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
+  # calculate "c.bar.current": c.bar at current time t and also t = 2
+  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle[1:t], s)
+  c.bar.current_2 <- MapAllocationsToClusters(sigma[1:2], particle[1:2], s)
+  
   if(is.null(c.bar.current[[2]]))
   {
     c.bar.current <- list(c.bar.current[[1]])
+    c.bar.current_2 <- list(c.bar.current_2[[1]])
   }
 
-  # log intermediate targets at current time t and time = 2
-  log.gamma_t <- LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                       adj, tau1, tau2, t, alpha, beta1, beta2)
+  # log intermediate targets at current time t and time t = 2
+  log.gamma_t <- LogIntermediateTarget(particle, all.clusters, c.bar.current, cum.sum.edge.counts, 
+                                       cum.sum.max.counts, adj, tau1, tau2, t, alpha, beta1, beta2)
   
-  log.gamma_2 <- LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                       adj, tau1, tau2, t = 2, alpha, beta1, beta2)
-  
+  log.gamma_2 <- LogIntermediateTarget(particle, all.clusters, c.bar.current_2, cum.sum.edge.counts, 
+                                       cum.sum.max.counts, adj, tau1, tau2, t = 2, alpha, beta1, 
+                                       beta2)
+
   # improved intermediate target
   log.improved.int.target <- (zeta_t(t, n) - 1) * log.gamma_2 + log.gamma_t
   
@@ -501,7 +403,8 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
 #' @param all.clusters set of all clusters ("c") [list]
-#' @param non.c.bar clusters not containing anchors [list]
+#' @param cum.sum.edge.counts cumulative sum of edge counts of c.bar.current [vector]
+#' @param cum.sum.max.counts cum sum of maximum possible edge counts of c.bar.current [vector]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
 #' @param tau2 factorisation of prior [function]
@@ -511,8 +414,8 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
 #' @return the possible allocations and resulting log "gamma hats" at time t
-PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, 
-                                adj, tau1, tau2, t, n, alpha, beta1, beta2)
+PossibleAllocations <- function(sigma, s, particle, all.clusters, cum.sum.edge.counts, 
+                                cum.sum.max.counts, adj, tau1, tau2, t, n, alpha, beta1, beta2)
 { 
   previous.allocation <- particle[t-1]
   
@@ -520,8 +423,10 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
   # (i.e. repeating previous allocation decision)
   stay.particle <- c(particle[1:(t-1)], previous.allocation)
   log.stay.gamma.hat <- LogImprovedIntermediateTarget(sigma, s, stay.particle, all.clusters, 
-                                                      non.c.bar, adj, tau1, tau2, t, n, 
-                                                      alpha, beta1, beta2)
+                                                      cum.sum.edge.counts, cum.sum.max.counts, 
+                                                      adj, tau1, tau2, t, n, alpha, beta1, beta2)
+  
+  
   
   # if previous allocation was merge (#2), then current allocation is always merge (#2)
   if(previous.allocation == 2)
@@ -540,8 +445,8 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
   
   # gamma hat based on move particle at time t
   log.move.gamma.hat <- LogImprovedIntermediateTarget(sigma, s, move.particle, all.clusters, 
-                                                      non.c.bar, adj, tau1, tau2, t, n, 
-                                                      alpha, beta1, beta2)
+                                                      cum.sum.edge.counts, cum.sum.max.counts, 
+                                                      adj, tau1, tau2, t, n, alpha, beta1, beta2)
   
   return(list("log.stay.gamma.hat" = log.stay.gamma.hat,
               "log.move.gamma.hat" = log.move.gamma.hat,
@@ -557,7 +462,8 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
 #' @param all.clusters set of all clusters ("c") [list]
-#' @param non.c.bar clusters not containing anchors [list]
+#' @param cum.sum.edge.counts cumulative sum of edge counts of c.bar.current [vector]
+#' @param cum.sum.max.counts cum sum of maximum possible edge counts of c.bar.current [vector]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
 #' @param tau2 factorisation of prior [function]
@@ -567,7 +473,7 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
 #' @return proposal allocation at time t
-Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, 
+Proposal <- function(sigma, s, particle, all.clusters, cum.sum.edge.counts, cum.sum.max.counts,
                      adj, tau1, tau2, t, n, alpha, beta1, beta2)
 {
   # t=2 is a special case: 
@@ -589,9 +495,10 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar,
   # is then made based on this probability.
 
   # possible allocations - and the log gamma.hats of staying in current state or moving
-  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
+  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, 
+                                              cum.sum.edge.counts, cum.sum.max.counts, 
                                               adj, tau1, tau2, t, n, alpha, beta1, beta2)
-
+  
   # log improved proposal probability: log of probability of staying in current state
   log.proposal.prob <- possible.allocations$log.stay.gamma.hat - 
                        logSumExp(lx = c(possible.allocations$log.stay.gamma.hat,
@@ -614,7 +521,8 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
 #' @param log.previous.weight log of unnormalised weight at time t-1 [scalar]
 #' @param all.clusters set of all clusters ("c") [list]
-#' @param non.c.bar clusters not containing anchors [list]
+#' @param cum.sum.edge.counts cumulative sum of edge counts of c.bar.current [vector]
+#' @param cum.sum.max.counts cum sum of maximum possible edge counts of c.bar.current [vector]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
 #' @param tau2 factorisation of prior [function]
@@ -625,7 +533,8 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param beta2 beta function parameter [scalar]
 #' @return log unnormalised weight at time t
 LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.clusters, 
-                                  non.c.bar, adj, tau1, tau2, t, n, alpha, beta1, beta2)
+                                  cum.sum.edge.counts, cum.sum.max.counts, adj, tau1, tau2, 
+                                  t, n, alpha, beta1, beta2)
 {
   # At t=2 unnormalised weights = 2 since ratios of gamma.hats = 1 
   if(t == 2)
@@ -634,14 +543,16 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.c
   }
   
   # possible allocations - and the log gamma.hats of staying in current state or moving
-  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
+  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, 
+                                              cum.sum.edge.counts, cum.sum.max.counts, 
                                               adj, tau1, tau2, t, n, alpha, beta1, beta2)
+  
   # gamma.hat at t-1
   log.gamma.hat.previous <- LogImprovedIntermediateTarget(sigma, s, particle[1:(t-1)], 
-                                                          all.clusters, non.c.bar, adj, 
-                                                          tau1, tau2, t-1, n, alpha, 
-                                                          beta1, beta2)
-  
+                                                          all.clusters, cum.sum.edge.counts,
+                                                          cum.sum.max.counts, adj, tau1, tau2, 
+                                                          t-1, n, alpha, beta1, beta2)
+
   # IF we merged at t=2 then we merge throughout so there is no log.move.gamma.hat
   if(particle[2] == 2)
   {
@@ -650,8 +561,8 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.c
   else
   {
     log.weight.update <- logSumExp(c(possible.allocations$log.stay.gamma.hat,
-                                   possible.allocations$log.move.gamma.hat)) -
-                         log.gamma.hat.previous
+                                   possible.allocations$log.move.gamma.hat)) - log.gamma.hat.previous
+                         
   }
   
   # update the unnormalised weight
@@ -705,6 +616,11 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   # uniform permutation on elements of s.bar - with anchors 1st and 2nd
   sigma <- SamplePermutation(s, s.bar)
   n <- length(sigma)
+  
+  # pre-compute cumulative sum of edge counts
+  cum.sum.counts <- PreComputeCumulativeSumOfEdgeCounts(sigma, non.c.bar, adj)
+  cum.sum.edge.counts <- cum.sum.counts$cum.sum.edge.counts
+  cum.sum.max.counts <- cum.sum.counts$cum.sum.max.counts
 
   # define particle matrix & fix 1st particle of each generation to conditional path
   particles <- matrix(rep(0, N*n), c(N, n))
@@ -732,14 +648,16 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       if(p >= 2)
       {
         # proposal only uses particle up to time t-1
-        particles[p, t] <- Proposal(sigma, s, particles[p, 1:(t-1)], all.clusters, non.c.bar, 
+        particles[p, t] <- Proposal(sigma, s, particles[p, 1:(t-1)], all.clusters, 
+                                    cum.sum.edge.counts, cum.sum.max.counts,
                                     adj, tau1, tau2, t, n, alpha, beta1, beta2)
       }
       
       # unnormalised weights
       log.un.weights[p] <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
                                                  log.previous.weight = log.un.weights[p], 
-                                                 all.clusters, non.c.bar, adj, tau1, tau2, 
+                                                 all.clusters, cum.sum.edge.counts, 
+                                                 cum.sum.max.counts, adj, tau1, tau2, 
                                                  t, n, alpha, beta1, beta2)
     }
   }
