@@ -220,13 +220,28 @@ CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
   # (allows for cases with 1 or 2 clusters in c.bar)
   counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
   {
-    # multiply by 0.5 since we don't want to double count
-    0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]]) 
+    # multiply by 0.5 if since we don't want to double count
+    if(directed == FALSE)
+    {
+      return(0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]]))
+    }
+    if(directed == TRUE)
+    {
+      return(sum(adj[c.bar.current[[x]], c.bar.current[[x]]]))
+    }
+    
   })
   
   max.counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
   {
-    0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
+    if(directed == FALSE)
+    {
+      return(0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1))
+    }
+    if(directed == TRUE)
+    {
+      return(length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1))
+    }
   })
   
   return(list("counts" = counts.within.c.bar.clusters,
@@ -243,8 +258,18 @@ CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
 CountEdgesBetweenCbarClusters <- function(c.bar.current, adj)
 {
   # c.bar.current must have 2 clusters
-  counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]])
-  max.counts.between.c.bar.clusters <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
+  if(directed == FALSE)
+  {
+    counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]])
+    max.counts.between.c.bar.clusters <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
+  }
+  if(directed == TRUE)
+  {
+    counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]]) +
+                                      sum(adj[c.bar.current[[2]], c.bar.current[[1]]])
+    max.counts.between.c.bar.clusters <- 2 * length(c.bar.current[[1]]) * 
+                                              length(c.bar.current[[2]])
+  }
   
   return(list("counts" = counts.between.c.bar.clusters,
               "max.counts" = max.counts.between.c.bar.clusters))
@@ -264,11 +289,26 @@ CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.ba
   {
     if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
     {
-      return(sum(adj[c.bar.current[[1]], x]))
+      if(directed == FALSE)
+      {
+        return(sum(adj[c.bar.current[[1]], x]))
+      }
+      if(directed == TRUE)
+      {
+        return(sum(adj[c.bar.current[[1]], x]) + sum(adj[x, c.bar.current[[1]]]))
+      }
     }
     if(length(c.bar.current) == 2)
     {
-      return(c(sum(adj[c.bar.current[[1]], x]), sum(adj[c.bar.current[[2]], x])))
+      if(directed == FALSE)
+      {
+        return(c(sum(adj[c.bar.current[[1]], x]), sum(adj[c.bar.current[[2]], x])))
+      }
+      if(directed == TRUE)
+      {
+        return(c(sum(adj[c.bar.current[[1]], x]) + sum(adj[x, c.bar.current[[1]]]), 
+                 sum(adj[c.bar.current[[2]], x]) + sum(adj[x, c.bar.current[[2]]])))
+      }
     }
   }))
   
@@ -277,11 +317,28 @@ CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.ba
   {
     if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
     {
-      return(length(c.bar.current[[1]]) * length(x))
+      if(directed == FALSE)
+      {
+        return(length(c.bar.current[[1]]) * length(x))
+      }
+      if(directed == TRUE)
+      {
+        return(2 * length(c.bar.current[[1]]) * length(x))
+      }
     }
+    
     if(length(c.bar.current) == 2)
     {
-      return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
+      if(directed == FALSE)
+      {
+        return(c(length(c.bar.current[[1]]) * length(x), 
+                 length(c.bar.current[[2]]) * length(x)))
+      }
+      if(directed == TRUE)
+      {
+        return(c(2 * length(c.bar.current[[1]]) * length(x), 
+                 2 * length(c.bar.current[[2]]) * length(x)))
+      }
     }
   }))
   

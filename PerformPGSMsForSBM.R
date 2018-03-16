@@ -11,10 +11,15 @@ source("PGSMsFunctions.R")
 
 # generate SBM
 n <- 20 # no. nodes
-K <- 5  # no. clusters
-pref.matrix <- diag(K) # Bernoulli rates (K x K matrix)
-block.sizes <- rep(4, K) # no. nodes in each cluster (K length vector)
-sbm <- sample_sbm(n, pref.matrix, block.sizes, directed = FALSE, loops = FALSE); plot(sbm)
+K <- 4  # no. clusters
+directed <- FALSE
+#pref.matrix <- diag(K) # Bernoulli rates (K x K matrix)
+#block.sizes <- rep(4, K) # no. nodes in each cluster (K length vector)
+#sbm <- sample_sbm(n, pref.matrix, block.sizes, directed = FALSE, loops = FALSE); plot(sbm)
+set.seed(2)
+sbm <- sample_sbm(n = 20,
+                  pref.matrix = forceSymmetric(matrix(runif(K^2), (c(K, K)))),
+                  block.sizes = c(6, 4, 7, 3), directed = FALSE, loops = FALSE); plot(sbm)
 start.clusters <- list(1:n) # list of clusters
 adj <- as_adj(sbm)
 
@@ -22,9 +27,9 @@ adj <- as_adj(sbm)
 alpha <- 1 # Dirichlet process parameter
 beta1 <- 1 # Flat uniform priors (McDaid: conjugate priors on the parameter for each cluster)
 beta2 <- 1
-N <- 20    # no. particles: (Bouchard uses 20)
+N <- 5    # no. particles: (Bouchard uses 20)
 resampling.threshold <- 0.5
-n.iters <- 1000
+n.iters <- 100000
 
 # perform PGSMs
 clusters <- start.clusters
