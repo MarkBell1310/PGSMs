@@ -5,9 +5,25 @@
 #
 #****************************************************
 
+library(Matrix)
+library(igraph)
+library(matrixStats)
+library(LaplacesDemon)
+
 #****************************************************
 #'  "Not in" function
 '%!in%' <- function(x,y)!('%in%'(x,y))
+
+#****************************************************
+#'  Adjustment to pi matrix - to replicate experiments in Mcdaid paper
+#'  
+#' @param pi original Bernoulli rates [matrix]
+#' @param delta adjustment factor [scalar]
+#' @return adjusted Bernoulli rates [vector]
+AdjustBernoulliRateMatrix <- function(pi, delta)
+{
+  delta + (pi * (1 - (2 * delta)))
+}
 
 #****************************************************
 #'  Annealing schedule ("zeta") for improved target distributions at time t

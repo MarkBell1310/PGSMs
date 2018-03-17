@@ -23,6 +23,10 @@ sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
 sbm <- sample_sbm(n = 20, pref.matrix = 0.99 * diag(1),
                   block.sizes = 20, directed = FALSE, loops = FALSE); plot(sbm)
 
+sbm <- sample_sbm(n = 20,
+                  pref.matrix = matrix(runif(K^2), (c(K, K))),
+                  block.sizes = c(6, 4, 7, 3), directed = TRUE, loops = FALSE); plot(sbm)
+
 ## Starting clusters
 
 start.clusters <- list(c(18, 14, 3, 5), c(12, 16, 20), c(1, 4, 19), c(7, 9, 13, 15),
