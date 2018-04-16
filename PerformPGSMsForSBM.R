@@ -32,6 +32,7 @@ resampling.threshold <- 0.5
 n.iters <- 50000
 
 # perform PGSMs
+start.clusters <- list(1:n)
 clusters <- start.clusters
 num.clusters <- rep(0, n.iters)
 start <- proc.time()

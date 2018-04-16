@@ -32,4 +32,4 @@ sbm <- sample_sbm(n = 20,
 start.clusters <- list(c(18, 14, 3, 5), c(12, 16, 20), c(1, 4, 19), c(7, 9, 13, 15),
                        c(2, 6, 8, 10, 11, 17))
 start.clusters <- list(1:10, 11:num.nodes)
-start.clusters <- list(1:num.nodes)
+start.clusters <- list(1:n)
