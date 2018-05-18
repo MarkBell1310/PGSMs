@@ -207,144 +207,364 @@ MapClustersToAllocations <- function(sigma, c.bar)
 # MapClustersToAllocations(sigma = s.bar, c.bar)
 # p1
 
-
 #****************************************************
-#'  Count edges WITHIN the c.bar clusters
-#'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
+#'  Pre-compute edge counts BETWEEN c.bar and non.c.bar clusters
 #'  
-#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
-#' @param adj adjacency matrix of the SBM [matrix]
-#' @return list of "counts" and "max.counts" of edges  [list of vectors]
-CountEdgesWithinCbarClusters <- function(c.bar.current, adj)
-{
-  # (allows for cases with 1 or 2 clusters in c.bar)
-  counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
-  {
-    # multiply by 0.5 since we don't want to double count
-    0.5 * sum(adj[c.bar.current[[x]], c.bar.current[[x]]]) 
-  })
-  
-  max.counts.within.c.bar.clusters <- sapply(1:length(c.bar.current), function(x)
-  {
-    0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
-  })
-  
-  return(list("counts" = counts.within.c.bar.clusters,
-              "max.counts" = max.counts.within.c.bar.clusters))
-}
-
-#****************************************************
-#'  Count edges BETWEEN the c.bar clusters
-#'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
-#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
-#' @param adj adjacency matrix of the SBM [matrix]
-#' @return list of "counts" and "max.counts" of edges  [list of vectors]
-CountEdgesBetweenCbarClusters <- function(c.bar.current, adj)
-{
-  # c.bar.current must have 2 clusters
-  counts.between.c.bar.clusters <- sum(adj[c.bar.current[[1]], c.bar.current[[2]]])
-  max.counts.between.c.bar.clusters <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
-  
-  return(list("counts" = counts.between.c.bar.clusters,
-              "max.counts" = max.counts.between.c.bar.clusters))
-}
-  
-#****************************************************
-#'  Count edges BETWEEN the c.bar and non.c.bar clusters
-#'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
-#'  
-#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
-#' @return list of "counts" and "max.counts" of edges  [list of vectors]
-CountEdgesBetweenCbarAndNonCbarClusters <- function(c.bar.current, adj, non.c.bar)
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return list of edge "counts" [list of vectors] 
+PreComputeEdgeCountsBetweenCbarAndNonCbar <- function(adj, non.c.bar, sigma, directed)
 {
-  counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
-  {
-    if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
-    {
-      return(sum(adj[c.bar.current[[1]], x]))
-    }
-    if(length(c.bar.current) == 2)
-    {
-      return(c(sum(adj[c.bar.current[[1]], x]), sum(adj[c.bar.current[[2]], x])))
-    }
-  }))
+  # returns list of length(non.c.bar)
+  # each vector in list is of length(sigma):
+  # -the first n = length(c.bar[[1]]) elements are counts with c.bar cluster 1
+  # -next m = length(c.bar[[2]]) elements are counts with c.bar cluster 2 (if it exists)
   
-  # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
-  max.counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
+  # count edges between each node in sigma (ordered nodes of c.bar) & each cluster of non.c.bar 
+  if(directed == FALSE)
   {
-    if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
+    return(lapply(non.c.bar, function(x)
     {
-      return(length(c.bar.current[[1]]) * length(x))
-    }
-    if(length(c.bar.current) == 2)
-    {
-      return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
-    }
-  }))
+      sapply(sigma, function(z)
+      {
+        sum(adj[z, x])
+      })
+    }))
+  }
   
-  return(list("counts" = counts.between.c.bar.non.c.bar.clusters,
-              "max.counts" = max.counts.between.c.bar.non.c.bar.clusters))
+  if(directed == TRUE)
+  {
+    return(lapply(non.c.bar, function(x)
+    {
+      sapply(sigma, function(z)
+      {
+        sum(adj[z, x]) + sum(adj[x, z])
+      })
+    }))
+  }
 }
-  
-  
+#PreComputeEdgeCountsBetweenCbarAndNonCbar(adj, non.c.bar, sigma, directed)
+#pre.computed.edge.counts <- PreComputeEdgeCountsBetweenCbarAndNonCbar(adj, non.c.bar, sigma, directed)
+
 #****************************************************
-#'  Count ALL relevant edges - used in the likelihood calculation
-#'  (Assumes graph is undirected - and hence adjacency matrix is symmetric)
+#'  Count new edges WITHIN the c.bar clusters 
+#'  (between the new node and remaining nodes)
+#'  
+#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return new edge counts WITHIN the c.bar clusters [vector] 
+#'         [vector length = 2]
+CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, particle, directed)
+{
+  ## Count edges between new node and all remaining nodes in the same cluster
+  ## (that new node has been added to)
+  
+  ## Output given in vector of form below - one of the two values must be zero:
+  ## c(within.c.bar1, within.c.bar2)
+  
+  # for undirected networks only need to sum adjacency matrix one way
+  if(directed == FALSE)
+  {
+    # IF only 1 cluster
+    # OR if 2 clusters AND new node added to cluster 1
+    if(length(c.bar.current) == 1 || particle[t] == 3)
+    {
+      return(c(sum(adj[sigma[t], c.bar.current[[1]]]), 0))
+      #max.counts <- c(length(c.bar.current[[1]]) - 1, 0)
+    }
+    
+    # ELSE if 2 clusters AND new node added to cluster 2 
+    if(particle[t] == 4)
+    {
+      return(c(0, sum(adj[sigma[t], c.bar.current[[2]]])))
+      #max.counts <- c(0, length(c.bar.current[[2]]) - 1)
+    }
+  }
+
+  # for directed networks need to sum adjacency matrix both ways
+  if(directed == TRUE)
+  {
+    # IF only 1 cluster
+    # OR if 2 clusters AND new node added to cluster 1
+    if(length(c.bar.current) == 1 || particle[t] == 3)
+    {
+      return(c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
+                 sum(adj[c.bar.current[[1]], sigma[t]]), 0))
+      #max.counts <- c(2 * (length(c.bar.current[[1]]) - 1), 0) 
+    }
+    
+    # ELSE if 2 clusters AND new node added to cluster 2 
+    if(particle[t] == 4)
+    {
+      return(c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
+                    sum(adj[c.bar.current[[2]], sigma[t]])))
+      #max.counts <- c(0, 2 * (length(c.bar.current[[2]]) - 1)) 
+    }
+  }
+}
+#CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, particle, directed = FALSE)
+
+
+#****************************************************
+#'  Count new edges BETWEEN the c.bar clusters
+#'  
+#' @param c.bar.current The 2 clusters that contain the anchors [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return new edge counts BETWEEN the c.bar clusters [scalar] 
+CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, particle, directed)
+{
+  # count edges between new node and all elements in the OTHER cluster
+  
+  # for undirected networks only need to sum adjacency matrix one way
+  if(directed == FALSE)
+  {
+    # IF new node added to cluster 2
+    if(particle[t] == 4)
+    {
+      return(sum(adj[sigma[t], c.bar.current[[1]]]))
+      #max.counts <- length(c.bar.current[[1]])
+    }
+    
+    # IF new node added to cluster 1
+    if(particle[t] == 3)
+    {
+      return(sum(adj[sigma[t], c.bar.current[[2]]]))
+      #max.counts <- length(c.bar.current[[2]])
+    }
+  }
+  
+  # for directed networks need to sum adjacency matrix both ways
+  if(directed == TRUE)
+  {
+    # IF new node added to cluster 2
+    if(particle[t] == 4)
+    {
+      return(sum(adj[sigma[t], c.bar.current[[1]]]) +
+             sum(adj[c.bar.current[[1]], sigma[t]]))
+      #max.counts <- length(c.bar.current[[1]]) * 2
+    }
+    
+    # IF new node added to cluster 1
+    if(particle[t] == 3)
+    {
+      return(sum(adj[sigma[t], c.bar.current[[2]]]) +
+             sum(adj[c.bar.current[[2]], sigma[t]]))
+      #max.counts <- length(c.bar.current[[2]]) * 2
+    }
+  }
+}
+#CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, particle, directed = FALSE)
+
+
+#****************************************************
+#'  Count new edges BETWEEN c.bar and non.c.bar clusters
+#'  
+#' @param pre.computed.edge.counts The pre-computed edge counts [list of vectors]
+#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' 
+#' @return new edge counts BETWEEN c.bar and non.c.bar clusters [vector]
+#'         [vector length = 2 * length(non.c.bar)]
+CountNewEdgesBetweenCbarAndNonCbar <- function(pre.computed.edge.counts, c.bar.current, 
+                                               t, particle)
+{
+  ## Determine which c.bar cluster the new node was added to, then count edges but use
+  ## correct form for running totals vectors - which means leaving certain entries zero.
+  
+  # Node added to cluster 1:
+  # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
+  if(length(c.bar.current) == 1 || particle[t] == 3)
+  {
+    return(c(sapply(pre.computed.edge.counts, function(x){x[t]}),
+                rep(0, length(pre.computed.edge.counts))))
+  }
+  
+  # Node added to cluster 2:
+  # ELSE if 2 clusters AND new node added to cluster 2 
+  if(particle[t] == 4)
+  {
+    return(c(rep(0, length(pre.computed.edge.counts)),
+                sapply(pre.computed.edge.counts, function(x){x[t]})))
+  }
+}
+#CountNewEdgesBetweenCbarAndNonCbar(pre.computed.edge.counts, c.bar.current, t, particle)
+
+#****************************************************
+#'  Count new edges for all 3 types
 #'  
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
-#' @return list of "counts" and "max.counts" of edges  [list of vectors]
-CountEdges <- function(c.bar.current, adj, non.c.bar)  
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return new edge counts for all 3 types; in the correct form for RunningTotalEdgeCount()
+#'         function  [vector]
+NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed)  
 {
-  # This function needs to consider the following scenarios:
-  # (1) nodes WITHIN clusters in c.bar.current
-  # (2) nodes BETWEEN clusters in c.bar.current (both clusters belong to c.bar) 
-  # (3) nodes BETWEEN c.bar clusters and non.c.bar clusters
-
-  # SCEN (1): nodes within clusters in c.bar
-  edges.within.c.bar.current <- CountEdgesWithinCbarClusters(c.bar.current, adj)
-  counts.within.c.bar.current <- edges.within.c.bar.current$counts
-  max.counts.within.c.bar.current <- edges.within.c.bar.current$max.counts
+  # This function needs to consider the following 3 types of edge counts:
+  # (1) nodes WITHIN cluster(s) in c.bar.current
+  # (2) nodes BETWEEN the 2 clusters in c.bar.current (only if we have 2 clusters) 
+  # (3) nodes BETWEEN c.bar cluster(s) and non.c.bar cluster(s)
   
-  # SCEN (2): nodes between clusters in c.bar - c.bar must have 2 clusters
+  # Output vector assumes the following (2 clusters in c.bar) form:
+  # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  
+  # TYPE (1): nodes within clusters in c.bar
+  within.c.bar.current <- CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, 
+                                                          particle, directed)
+  
+  # TYPE (2): nodes between clusters in c.bar (c.bar must have 2 clusters)
   if(length(c.bar.current) == 2)
   {
-    edges.between.c.bar.current <- CountEdgesBetweenCbarClusters(c.bar.current, adj)
-    counts.between.c.bar.current <- edges.between.c.bar.current$counts
-    max.counts.between.c.bar.current <- edges.between.c.bar.current$max.counts
+    between.c.bar.current <- CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, 
+                                                              particle, directed)
   }
   else
   {
-    counts.between.c.bar.current <- NULL
-    max.counts.between.c.bar.current <- NULL
+    between.c.bar.current <- 0
   }
   
-  # SCEN (3): nodes between c.bar and non c.bar clusters
+  # TYPE (3): nodes between c.bar and non c.bar clusters
   if(length(non.c.bar) != 0)
   {
-    edges.between.c.bar.non.c.bar <- CountEdgesBetweenCbarAndNonCbarClusters(c.bar.current, 
-                                                                             adj, non.c.bar)
-    counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$counts
-    max.counts.between.c.bar.non.c.bar <- edges.between.c.bar.non.c.bar$max.counts
+    between.c.bar.non.c.bar <- CountNewEdgesBetweenCbarAndNonCbar(pre.computed.edge.counts, 
+                                                                  c.bar.current, t, particle)
   }
   else
   {
-    counts.between.c.bar.non.c.bar <- NULL
-    max.counts.between.c.bar.non.c.bar <- NULL
+    between.c.bar.non.c.bar <- rep(0, 2 * length(non.c.bar))
   }
-
-  return(list("counts" = c(counts.within.c.bar.current,
-                           counts.between.c.bar.current,
-                           counts.between.c.bar.non.c.bar),
-              "max.counts" = c(max.counts.within.c.bar.current,
-                               max.counts.between.c.bar.current,
-                               max.counts.between.c.bar.non.c.bar)))
+  
+  return(c(within.c.bar.current, between.c.bar.current, between.c.bar.non.c.bar))
 }
-#CountEdges(c.bar.current, adj, non.c.bar)  
+#NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed = FALSE)  
+
+
+#****************************************************
+#'  Calculate maximum edge counts 
+#'  
+#' @param previous.total Previous running totals of edge counts [vector]
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return maximum edge counts [vector]
+MaximumEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma, 
+                              particle, t, directed)
+{
+  # TO DO: inlcude if statements directed network
+  # TO DO: create vector in same form as for edge counts
+  
+  if(directed == TRUE)
+  {
+    
+  }
+  
+  if(directed == FALSE)
+  {
+    
+  }
+  
+  #### Code for calculating max edges for type (3) counts 
+  # # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
+  # max.counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
+  # {
+  #   if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
+  #   {
+  #     return(length(c.bar.current[[1]]) * length(x))
+  #   }
+  #   if(length(c.bar.current) == 2)
+  #   {
+  #     return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
+  #   }
+  # }))
+  
+  # max.counts <- as.double(sapply(non.c.bar, function(x)
+  # {
+  #   if(length(c.bar.current) == 1) 
+  #   {
+  #     return(length(c.bar.current[[1]]) * length(x))
+  #   }
+  #   if(length(c.bar.current) == 2)
+  #   {
+  #     return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
+  #   }
+  # }))
+  
+  
+  #*************************
+  # TO DO: consider - can we still use the same general (edge count) form if only have 1 cluster??
+  # How to remove "redundant" running totals for likelihood? Since some non-redundant ones will be zero.
+  # How to calculate max.counts? Don't calculate at each time update - do this in new EdgeCounts() function
+  #*************************
+  
+}
+
+#****************************************************
+#'  Calculate total edge counts 
+#'  
+#' @param previous.total Previous running totals of edge counts [vector]
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param directed whether network is directed [boolean]
+#' 
+#' @return total edge counts [vector]
+TotalEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma, 
+                            particle, t, directed)
+{
+  # TO DO: pass the previous.total down from higher level functions
+  
+  ### 2 "FORMS" of vector for storing edge counts. So far we have assumed FORM 1.
+  ### Now need to convert to appropriate form - depending on no. c.bar clusters 
+  # "FORM 1": 2 clusters in c.bar (2m + 3 elements), where m = no. non.c.bar clusters
+  #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  # "FORM 2": 1 cluster in c.bar (m + 1 elements)
+  #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
+  
+  
+  # IF split particle then leave new.total in its current form below ("FORM 1"):
+  #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ... ,
+  #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  new.total <- previous.total + NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
+                                              particle, t, directed) 
+
+  # IF merge particle then remove redundant elements of new.total ("FORM 2"):
+  #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
+  if(particle[2] == 2)
+  {
+    m <- length(non.c.bar)
+    new.total <- new.total[-c(2, 3, (3 + m + 1):length(new.total))]
+  }
+  
+  return(new.total)
+}
 
 
 #****************************************************
