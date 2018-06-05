@@ -131,11 +131,10 @@ MapAllocationsToClusters <- function(sigma, particle, s)
   # At t=2: otherwise split - assign an anchor to each cluster
   n <- length(sigma)
   cluster1 <- cluster2 <- rep(0, n) 
-  cluster1[1] <- s[1]  # put each anchor back in the correct cluster
-  cluster2[1] <- s[2]
-  
-  #cluster1[1] <- sigma[1] 
-  #cluster2[1] <- sigma[2]
+
+  # 1st anchor point (from sigma) goes in cluster 1
+  cluster1[1] <- sigma[1] 
+  cluster2[1] <- sigma[2]
   
   # Then for t=3,...,n: calculate clustering from decisions #3 and #4
   if(n >= 3)
@@ -207,47 +206,6 @@ MapClustersToAllocations <- function(sigma, c.bar)
 # MapClustersToAllocations(sigma = s.bar, c.bar)
 # p1
 
-#****************************************************
-#'  Pre-compute edge counts BETWEEN c.bar and non.c.bar clusters
-#'  
-#' @param adj adjacency matrix of the SBM [matrix]
-#' @param non.c.bar clusters that do not contain the anchors [list]
-#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
-#' @param directed whether network is directed [boolean]
-#' 
-#' @return list of edge "counts" [list of vectors] 
-PreComputeEdgeCountsBetweenCbarAndNonCbar <- function(adj, non.c.bar, sigma, directed)
-{
-  # returns list of length(non.c.bar)
-  # each vector in list is of length(sigma):
-  # -the first n = length(c.bar[[1]]) elements are counts with c.bar cluster 1
-  # -next m = length(c.bar[[2]]) elements are counts with c.bar cluster 2 (if it exists)
-  
-  # count edges between each node in sigma (ordered nodes of c.bar) & each cluster of non.c.bar 
-  if(directed == FALSE)
-  {
-    return(lapply(non.c.bar, function(x)
-    {
-      sapply(sigma, function(z)
-      {
-        sum(adj[z, x])
-      })
-    }))
-  }
-  
-  if(directed == TRUE)
-  {
-    return(lapply(non.c.bar, function(x)
-    {
-      sapply(sigma, function(z)
-      {
-        sum(adj[z, x]) + sum(adj[x, z])
-      })
-    }))
-  }
-}
-#PreComputeEdgeCountsBetweenCbarAndNonCbar(adj, non.c.bar, sigma, directed)
-#pre.computed.edge.counts <- PreComputeEdgeCountsBetweenCbarAndNonCbar(adj, non.c.bar, sigma, directed)
 
 #****************************************************
 #'  Count new edges WITHIN the c.bar clusters 
@@ -278,14 +236,12 @@ CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, partic
     if(length(c.bar.current) == 1 || particle[t] == 3)
     {
       return(c(sum(adj[sigma[t], c.bar.current[[1]]]), 0))
-      #max.counts <- c(length(c.bar.current[[1]]) - 1, 0)
     }
     
     # ELSE if 2 clusters AND new node added to cluster 2 
     if(particle[t] == 4)
     {
       return(c(0, sum(adj[sigma[t], c.bar.current[[2]]])))
-      #max.counts <- c(0, length(c.bar.current[[2]]) - 1)
     }
   }
 
@@ -298,7 +254,6 @@ CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, partic
     {
       return(c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
                  sum(adj[c.bar.current[[1]], sigma[t]]), 0))
-      #max.counts <- c(2 * (length(c.bar.current[[1]]) - 1), 0) 
     }
     
     # ELSE if 2 clusters AND new node added to cluster 2 
@@ -306,7 +261,6 @@ CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, partic
     {
       return(c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
                     sum(adj[c.bar.current[[2]], sigma[t]])))
-      #max.counts <- c(0, 2 * (length(c.bar.current[[2]]) - 1)) 
     }
   }
 }
@@ -335,14 +289,12 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
     if(particle[t] == 4)
     {
       return(sum(adj[sigma[t], c.bar.current[[1]]]))
-      #max.counts <- length(c.bar.current[[1]])
     }
     
     # IF new node added to cluster 1
     if(particle[t] == 3)
     {
       return(sum(adj[sigma[t], c.bar.current[[2]]]))
-      #max.counts <- length(c.bar.current[[2]])
     }
   }
   
@@ -354,7 +306,6 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
     {
       return(sum(adj[sigma[t], c.bar.current[[1]]]) +
              sum(adj[c.bar.current[[1]], sigma[t]]))
-      #max.counts <- length(c.bar.current[[1]]) * 2
     }
     
     # IF new node added to cluster 1
@@ -362,7 +313,6 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
     {
       return(sum(adj[sigma[t], c.bar.current[[2]]]) +
              sum(adj[c.bar.current[[2]], sigma[t]]))
-      #max.counts <- length(c.bar.current[[2]]) * 2
     }
   }
 }
@@ -372,36 +322,37 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
 #****************************************************
 #'  Count new edges BETWEEN c.bar and non.c.bar clusters
 #'  
-#' @param pre.computed.edge.counts The pre-computed edge counts [list of vectors]
+#' @param global.counts.between.nodes.clusters Edge counts between every node & cluster [matrix]
+#' @param global.non.c.bar.indices Indices of non.c.bar clusters [vector]
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' 
+#' @param sigma Ordered elements of c.bar [vector]
 #' @return new edge counts BETWEEN c.bar and non.c.bar clusters [vector]
 #'         [vector length = 2 * length(non.c.bar)]
-CountNewEdgesBetweenCbarAndNonCbar <- function(pre.computed.edge.counts, c.bar.current, 
-                                               t, particle)
+CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clusters, 
+                                               global.non.c.bar.indices, c.bar.current, 
+                                               t, particle, sigma)
 {
-  ## Determine which c.bar cluster the new node was added to, then count edges but use
-  ## correct form for running totals vectors - which means leaving certain entries zero.
+  # Count edges between new node & each cluster of non.c.bar
+  new.edge.counts <- 
+    global.counts.between.nodes.clusters[sigma[t], global.non.c.bar.indices] 
   
   # Node added to cluster 1:
   # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
   if(length(c.bar.current) == 1 || particle[t] == 3)
   {
-    return(c(sapply(pre.computed.edge.counts, function(x){x[t]}),
-                rep(0, length(pre.computed.edge.counts))))
+    return(c(new.edge.counts, rep(0, length(new.edge.counts))))
   }
   
   # Node added to cluster 2:
   # ELSE if 2 clusters AND new node added to cluster 2 
   if(particle[t] == 4)
   {
-    return(c(rep(0, length(pre.computed.edge.counts)),
-                sapply(pre.computed.edge.counts, function(x){x[t]})))
+    return(c(rep(0, length(new.edge.counts)), new.edge.counts))
   }
 }
-#CountNewEdgesBetweenCbarAndNonCbar(pre.computed.edge.counts, c.bar.current, t, particle)
+#CountNewEdgesBetweenCbarAndNonCbar(global.matrix.counts.nodes.clusters, global.non.c.bar.indices, c.bar.current, t, particle)
 
 #****************************************************
 #'  Count new edges for all 3 types
@@ -443,14 +394,16 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
   }
   
   # TYPE (3): nodes between c.bar and non c.bar clusters
-  if(length(non.c.bar) != 0)
+  if(length(non.c.bar) >= 1)
   {
-    between.c.bar.non.c.bar <- CountNewEdgesBetweenCbarAndNonCbar(pre.computed.edge.counts, 
-                                                                  c.bar.current, t, particle)
+    between.c.bar.non.c.bar <- 
+      CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, 
+                                         global.non.c.bar.indices, c.bar.current, 
+                                         t, particle, sigma)
   }
   else
   {
-    between.c.bar.non.c.bar <- rep(0, 2 * length(non.c.bar))
+    between.c.bar.non.c.bar <- NULL # if no non.c.bar clusters, set to NULL
   }
   
   return(c(within.c.bar.current, between.c.bar.current, between.c.bar.non.c.bar))
@@ -459,88 +412,108 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
 
 
 #****************************************************
-#'  Calculate maximum edge counts 
-#'  
-#' @param previous.total Previous running totals of edge counts [vector]
+#'  Calculate running total of edge counts 
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed whether network is directed [boolean]
-#' 
-#' @return maximum edge counts [vector]
-MaximumEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma, 
-                              particle, t, directed)
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
+#' @return total edge counts [vector]
+RunningTotalEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,
+                                   particle.index)
 {
-  # TO DO: inlcude if statements directed network
-  # TO DO: create vector in same form as for edge counts
+  # Uses global previous edge counts list to update to new total 
+  running.total <- global.running.total.edge.counts[[particle.index]] + 
+                NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed) 
   
-  if(directed == TRUE)
-  {
-    
-  }
-  
-  if(directed == FALSE)
-  {
-    
-  }
-  
-  #### Code for calculating max edges for type (3) counts 
-  # # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
-  # max.counts.between.c.bar.non.c.bar.clusters <- as.double(sapply(non.c.bar, function(x)
-  # {
-  #   if(length(c.bar.current) == 1) # if c.bar.current only contains 1 cluster
-  #   {
-  #     return(length(c.bar.current[[1]]) * length(x))
-  #   }
-  #   if(length(c.bar.current) == 2)
-  #   {
-  #     return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
-  #   }
-  # }))
-  
-  # max.counts <- as.double(sapply(non.c.bar, function(x)
-  # {
-  #   if(length(c.bar.current) == 1) 
-  #   {
-  #     return(length(c.bar.current[[1]]) * length(x))
-  #   }
-  #   if(length(c.bar.current) == 2)
-  #   {
-  #     return(c(length(c.bar.current[[1]]) * length(x), length(c.bar.current[[2]]) * length(x)))
-  #   }
-  # }))
-  
-  
-  #*************************
-  # TO DO: consider - can we still use the same general (edge count) form if only have 1 cluster??
-  # How to remove "redundant" running totals for likelihood? Since some non-redundant ones will be zero.
-  # How to calculate max.counts? Don't calculate at each time update - do this in new EdgeCounts() function
-  #*************************
-  
+  return(running.total)
 }
+#RunningTotalEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,particle.index)
 
 #****************************************************
-#'  Calculate total edge counts 
+#'  Calculate maximum edge counts 
 #'  
-#' @param previous.total Previous running totals of edge counts [vector]
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param directed is network directed or not [boolean]
+#' @return maximum edge counts [vector]
+MaximumEdgeCounts <- function(c.bar.current, non.c.bar, directed)
+{
+  # As for edge counts, the output vector assumes following (2 clusters in c.bar) form:
+  # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  max.counts.within.c.bar <- sapply(1:length(c.bar.current), function(x)
+  {
+    0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
+  })
+  
+  # c.bar.current must have 2 clusters
+  if(length(c.bar.current) == 2)
+  {
+    max.counts.between.c.bar <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
+  }
+  
+  # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
+  if(length(non.c.bar) >= 1)
+  {
+    max.counts.between.c.bar.non.c.bar <- as.integer(sapply(c.bar.current, function(z)
+    {
+      return(sapply(non.c.bar, function(x)
+      {
+        length(z) * length(x)
+      }))
+    }))
+    
+    # get in correct form 
+    if(length(c.bar.current) == 1)
+    {
+      max.counts.between.c.bar.non.c.bar <- c(max.counts.between.c.bar.non.c.bar,
+                                              rep(0, length(non.c.bar)))
+    }
+  }
+  if(length(non.c.bar) == 0)
+  {
+    max.counts.between.c.bar.non.c.bar <- NULL
+  }
+  
+  # get in correct form 
+  if(length(c.bar.current) == 1)
+  {
+    max.counts.within.c.bar <- c(max.counts.within.c.bar, 0)
+    max.counts.between.c.bar <- 0
+  }
+  
+  # For directed graph, double the max.counts for undirected graph
+  if(directed == TRUE)
+  {
+    max.counts.within.c.bar <- 2 * max.counts.within.c.bar
+    max.counts.between.c.bar <- 2 * max.counts.between.c.bar
+    max.counts.between.c.bar.non.c.bar <- 2 * max.counts.between.c.bar.non.c.bar
+  }
+  
+  return(c(max.counts.within.c.bar, max.counts.between.c.bar, max.counts.between.c.bar.non.c.bar))
+}
+#MaximumEdgeCounts(c.bar.current, non.c.bar, directed = FALSE)
+
+
+#****************************************************
+#'  Counts for likelihood - Remove redundant zeros
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed whether network is directed [boolean]
-#' 
-#' @return total edge counts [vector]
-TotalEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma, 
-                            particle, t, directed)
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
+#' @return total edge counts and maximum edge counts [list of vectors]
+CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                t, directed, particle.index)
 {
-  # TO DO: pass the previous.total down from higher level functions
-  
-  ### 2 "FORMS" of vector for storing edge counts. So far we have assumed FORM 1.
+  ### Note: 2 "FORMS" of vector for storing edge counts. So far we have assumed FORM 1.
   ### Now need to convert to appropriate form - depending on no. c.bar clusters 
   # "FORM 1": 2 clusters in c.bar (2m + 3 elements), where m = no. non.c.bar clusters
   #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
@@ -548,24 +521,44 @@ TotalEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma
   # "FORM 2": 1 cluster in c.bar (m + 1 elements)
   #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
   
+  ### Note: if no non.c.bar clusters, then terms (BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #         BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...) are NULL. 
   
-  # IF split particle then leave new.total in its current form below ("FORM 1"):
+  ##### Split particle
+  # IF split particle then leave edge counts in their current form below ("FORM 1"):
   #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ... ,
   #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
-  new.total <- previous.total + NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
-                                              particle, t, directed) 
-
-  # IF merge particle then remove redundant elements of new.total ("FORM 2"):
+  total.edge.counts <- RunningTotalEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
+                                              particle, t, directed, particle.index)
+  max.edge.counts <- MaximumEdgeCounts(c.bar.current, non.c.bar, directed)
+  reduced.edge.counts <- total.edge.counts
+  
+  ##### Merge particle
+  # IF merge particle then remove redundant elements of edge count vectors ("FORM 2"):
   #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
   if(particle[2] == 2)
   {
     m <- length(non.c.bar)
-    new.total <- new.total[-c(2, 3, (3 + m + 1):length(new.total))]
+    
+    # IF there is at least one non.c.bar cluster
+    if(m > 0)
+    {
+      reduced.edge.counts <- total.edge.counts[-c(2, 3, (3 + m + 1):length(total.edge.counts))]
+      max.edge.counts <- max.edge.counts[-c(2, 3, (3 + m + 1):length(max.edge.counts))] 
+    }
+    
+    # IF there are no non.c.bar clusters
+    if(m == 0)
+    {
+      reduced.edge.counts <- total.edge.counts[-c(2, 3)]
+      max.edge.counts <- max.edge.counts[-c(2, 3)]
+    }  
   }
-  
-  return(new.total)
+  return(list("edge.counts.running.total" = total.edge.counts, 
+              "edge.counts.likelihood" = reduced.edge.counts,
+              "max.edge.counts" = max.edge.counts))
 }
-
+#CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, t, directed = FALSE)
 
 #****************************************************
 #'  Log of intermediate target distribution at time t (Log "Gamma")
@@ -583,14 +576,18 @@ TotalEdgeCounts <- function(previous.total, c.bar.current, adj, non.c.bar, sigma
 #' @param alpha tau1 parameter
 #' @param beta1 beta function parameter
 #' @param beta2 beta function parameter
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
 #' @return log of intermeduate target distribution
 LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                  adj, tau1, tau2, t, alpha, beta1, beta2)
+                                  adj, tau1, tau2, t, alpha, beta1, beta2, directed, 
+                                  particle.index)
 {
   # count relevant edges within and between clusters
-  edge.counts <- CountEdges(c.bar.current, adj, non.c.bar)  
-  counts <- edge.counts$counts
-  max.counts <- edge.counts$max.counts
+  all.edge.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                         t, directed, particle.index)
+  counts <- all.edge.counts$edge.counts.likelihood
+  max.counts <- all.edge.counts$max.edge.counts
   n <- length(counts)
   
   # product of all between-cluster log likelihoods 
@@ -611,10 +608,11 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
   # intermediate target
   log.int.target <- log.prior + sum.log.likelihoods
   
-  return(log.int.target)
+  return(list("log.int.target" = log.int.target,
+              "edge.counts" = all.edge.counts$edge.counts.running.total))
 }   
 #LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-#                      adj, tau1, tau2, t, alpha, beta1, beta2)
+#                      adj, tau1, tau2, t, alpha, beta1, beta2)$log.int.target
 
 
 #****************************************************
@@ -633,34 +631,33 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
 #' @return log of improved intermeduate target distribution
 LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, 
-                                          adj, tau1, tau2, t, n, alpha, beta1, beta2)
+                                          adj, tau1, tau2, t, n, alpha, beta1, beta2, 
+                                          directed, particle.index)
 {
-  # if t = 1,2 then "gamma hat" = 1 and log "gamma hat" = 0
-  if(t <= 2)
-  {
-    return(0)
-  }
-  
   # calculate "c.bar.current": c.bar at time t
   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
   if(is.null(c.bar.current[[2]]))
   {
     c.bar.current <- list(c.bar.current[[1]])
   }
-
-  # log intermediate targets at current time t and time = 2
-  log.gamma_t <- LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                       adj, tau1, tau2, t, alpha, beta1, beta2)
   
-  log.gamma_2 <- LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                       adj, tau1, tau2, t = 2, alpha, beta1, beta2)
+  # log intermediate target at current time t
+  log.intermediate.target <- LogIntermediateTarget(sigma, s, particle, all.clusters, 
+                                                   c.bar.current, non.c.bar, adj, tau1, tau2, 
+                                                   t, alpha, beta1, beta2, directed,
+                                                   particle.index)
+  log.gamma_t <- log.intermediate.target$log.int.target
   
-  # improved intermediate target
-  log.improved.int.target <- (zeta_t(t, n) - 1) * log.gamma_2 + log.gamma_t
+  # log improved intermediate target ("gamma hat"): also uses gamma at t=2
+  log.improved.int.target <- (zeta_t(t, n) - 1) * global.log.gamma_2[particle.index] + 
+                              log.gamma_t
   
-  return(log.improved.int.target)
+  return(list("log.imp.int.target" = log.improved.int.target,
+              "edge.counts" = log.intermediate.target$edge.counts))
 }
 
 #****************************************************
@@ -680,18 +677,22 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
 #' @return the possible allocations and resulting log "gamma hats" at time t
-PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, 
-                                adj, tau1, tau2, t, n, alpha, beta1, beta2)
+PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
+                                t, n, alpha, beta1, beta2, directed, particle.index)
 { 
   previous.allocation <- particle[t-1]
   
   # particle and log gamma.hat resulting from staying in current state 
   # (i.e. repeating previous allocation decision)
   stay.particle <- c(particle[1:(t-1)], previous.allocation)
-  log.stay.gamma.hat <- LogImprovedIntermediateTarget(sigma, s, stay.particle, all.clusters, 
-                                                      non.c.bar, adj, tau1, tau2, t, n, 
-                                                      alpha, beta1, beta2)
+  log.stay.improved.int.target <- 
+    LogImprovedIntermediateTarget(sigma, s, stay.particle, all.clusters, non.c.bar, adj, 
+                                  tau1, tau2, t, n, alpha, beta1, beta2, directed, particle.index)
+  log.stay.gamma.hat <- log.stay.improved.int.target$log.imp.int.target
+  stay.edge.counts <- log.stay.improved.int.target$edge.counts
   
   # if previous allocation was merge (#2), then current allocation is always merge (#2)
   if(previous.allocation == 2)
@@ -699,7 +700,8 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
     return(list("log.stay.gamma.hat" = log.stay.gamma.hat,
                 "log.move.gamma.hat" = NULL,  
                 "previous.allocation" = 2,
-                "alternative.allocation" = NULL))
+                "alternative.allocation" = NULL,
+                "stay.edge.counts" = stay.edge.counts))
   }
   
   # otherwise split is performed (#3 or #4)
@@ -709,14 +711,18 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
   move.particle <- c(particle[1:(t-1)], alternative.allocation)
   
   # gamma hat based on move particle at time t
-  log.move.gamma.hat <- LogImprovedIntermediateTarget(sigma, s, move.particle, all.clusters, 
-                                                      non.c.bar, adj, tau1, tau2, t, n, 
-                                                      alpha, beta1, beta2)
+  log.move.improved.int.target <- 
+    LogImprovedIntermediateTarget(sigma, s, move.particle, all.clusters, non.c.bar, adj, 
+                                  tau1, tau2, t, n, alpha, beta1, beta2, directed, particle.index)
+  log.move.gamma.hat <- log.move.improved.int.target$log.imp.int.target
+  move.edge.counts <- log.move.improved.int.target$edge.counts
   
   return(list("log.stay.gamma.hat" = log.stay.gamma.hat,
               "log.move.gamma.hat" = log.move.gamma.hat,
               "previous.allocation" = previous.allocation,
-              "alternative.allocation" = alternative.allocation))
+              "alternative.allocation" = alternative.allocation,
+              "stay.edge.counts" = stay.edge.counts,
+              "move.edge.counts" = move.edge.counts))
 }
 
 
@@ -736,43 +742,97 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
 #' @return proposal allocation at time t
-Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, 
-                     adj, tau1, tau2, t, n, alpha, beta1, beta2)
+Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
+                     t, n, alpha, beta1, beta2, directed, particle.index)
 {
-  # t=2 is a special case: 
+  ## SPECIAL CASE: t=2 
   # allocation decisions at t=1 for all particles are #1 - so cannot use previous values
-  # proposal allocation: equal chance of #2 (merge) or #4 (split)
+  # proposal allocation: equal chance of decision #2 (merge) or #4 (split)
+  # gamma hats = 0 but we still need to store the edge counts for running totals
+  # and edge counts depend on allocation decision at t=2 
   if(t == 2)
-  {
-    return(ifelse(runif(1) < 0.5, 2, 4))
+  { 
+    # determine allocation decision and particle
+    allocation <- ifelse(runif(1) < 0.5, 2, 4)
+    particle <- c(1, allocation )
+    
+    # calculate "c.bar.current": c.bar at time t
+    c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
+    if(is.null(c.bar.current[[2]]))
+    {
+      c.bar.current <- list(c.bar.current[[1]])
+    }
+    
+    # calculate edge count running total and global_log.gamma_2
+    # (global.log.gamma_2 not used until t = 3)
+    log.intermediate.target <-  
+      LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, 
+                            non.c.bar, adj, tau1, tau2, t = 2, alpha, beta1, 
+                            beta2, directed, particle.index)
+    
+    # update edge count running total
+    global.running.total.edge.counts[[particle.index]] <<- log.intermediate.target$edge.counts
+    
+    # store global.log.gamma_2
+    global.log.gamma_2[particle.index] <<- log.intermediate.target$log.int.target
+    
+    return(list("allocation" = allocation,
+                "log.stay.gamma.hat" = 0,
+                "log.move.gamma.hat" = 0,
+                "log.gamma.hat" = 0))
   }
+  
+  ## For t>2:
+  # possible allocations - and the log gamma.hats of staying in current state or moving
+  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
+                                              adj, tau1, tau2, t, n, alpha, beta1, beta2,
+                                              directed, particle.index)
   
   # IF we merged at t=2 we merge throughout so that allocation = #2
   if(particle[2] == 2)
   {
-    return(2)
+    global.running.total.edge.counts[[particle.index]] <<- possible.allocations$stay.edge.counts
+    return(list("allocation" = 2,
+                "log.stay.gamma.hat" = possible.allocations$log.stay.gamma.hat,
+                "log.move.gamma.hat" = NULL, 
+                "log.gamma.hat" = possible.allocations$log.stay.gamma.hat))
   }
+  
   # ELSE a split was performed at t=2: At each t there are 2 possible allocation decisions.
   # We calculate the probablity of staying in the current state (i.e. repeating the previous
   # allocation decision) by normalising over both decisions. The proposed allocation decision
   # is then made based on this probability.
-
-  # possible allocations - and the log gamma.hats of staying in current state or moving
-  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
-                                              adj, tau1, tau2, t, n, alpha, beta1, beta2)
 
   # log improved proposal probability: log of probability of staying in current state
   log.proposal.prob <- possible.allocations$log.stay.gamma.hat - 
                        logSumExp(lx = c(possible.allocations$log.stay.gamma.hat,
                                         possible.allocations$log.move.gamma.hat))
   
-  # improved proposal allocation decision
-  proposal.allocation <- ifelse(log(runif(1)) < log.proposal.prob, 
-                                possible.allocations$previous.allocation, 
-                                possible.allocations$alternative.allocation)
+  ## Select proposal allocation decision and corresponding log.gamma.hat 
+  ## Edge counts added to running totals
   
-  return(proposal.allocation)
+  # IF we stay (repeat) previous decision
+  if(log(runif(1)) < log.proposal.prob)
+  {
+    proposal.allocation <- possible.allocations$previous.allocation
+    log.gamma.hat <- possible.allocations$log.stay.gamma.hat
+    global.running.total.edge.counts[[particle.index]] <<- possible.allocations$stay.edge.counts
+  }
+  # ELSE we move (choose different) decision
+  else
+  {
+    proposal.allocation <- possible.allocations$alternative.allocation
+    log.gamma.hat <- possible.allocations$log.move.gamma.hat
+    global.running.total.edge.counts[[particle.index]] <<- possible.allocations$move.edge.counts
+  }
+
+  return(list("allocation" = proposal.allocation,
+              "log.stay.gamma.hat" = possible.allocations$log.stay.gamma.hat,
+              "log.move.gamma.hat" = possible.allocations$log.move.gamma.hat,
+              "log.gamma.hat" = log.gamma.hat))
 }
 
 
@@ -793,42 +853,154 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar,
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter [scalar]
 #' @param beta2 beta function parameter [scalar]
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
+#' @param log.gamma.hat.previous log intermediate target at time t-1 [scalar]
 #' @return log unnormalised weight at time t
 LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.clusters, 
-                                  non.c.bar, adj, tau1, tau2, t, n, alpha, beta1, beta2)
+                                  non.c.bar, adj, tau1, tau2, t, n, alpha, beta1, beta2, 
+                                  directed, particle.index, log.gamma.hat.previous)
 {
+  # Proposal 
+  proposal <- Proposal(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
+                       t, n, alpha, beta1, beta2, directed, particle.index)
+
   # At t=2 unnormalised weights = 2 since ratios of gamma.hats = 1 
   if(t == 2)
   {
-    return(log(2)) 
+    return(list("log.unnormalised.weight" = log(2),
+                "proposal.allocation" = proposal$allocation,
+                "log.gamma.hat" = 0))
   }
-  
-  # possible allocations - and the log gamma.hats of staying in current state or moving
-  possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
-                                              adj, tau1, tau2, t, n, alpha, beta1, beta2)
-  # gamma.hat at t-1
-  log.gamma.hat.previous <- LogImprovedIntermediateTarget(sigma, s, particle[1:(t-1)], 
-                                                          all.clusters, non.c.bar, adj, 
-                                                          tau1, tau2, t-1, n, alpha, 
-                                                          beta1, beta2)
+
+  log.stay.gamma.hat <- proposal$log.stay.gamma.hat
+  log.move.gamma.hat <- proposal$log.move.gamma.hat
   
   # IF we merged at t=2 then we merge throughout so there is no log.move.gamma.hat
   if(particle[2] == 2)
   {
-    log.weight.update <- possible.allocations$log.stay.gamma.hat - log.gamma.hat.previous
+    log.weight.update <- log.stay.gamma.hat - log.gamma.hat.previous
   }
   else
   {
-    log.weight.update <- logSumExp(c(possible.allocations$log.stay.gamma.hat,
-                                   possible.allocations$log.move.gamma.hat)) -
-                         log.gamma.hat.previous
+    log.weight.update <- logSumExp(c(log.stay.gamma.hat, log.move.gamma.hat)) -
+                          log.gamma.hat.previous
   }
   
   # update the unnormalised weight
   log.unnormalised.weight <- log.previous.weight + log.weight.update
   
-  return(log.unnormalised.weight)
+  return(list("log.unnormalised.weight" = log.unnormalised.weight,
+              "proposal.allocation" = proposal$allocation,
+              "log.gamma.hat" = proposal$log.gamma.hat))
 }
+
+
+#****************************************************
+#'  Create global matrix of edge counts between every node and every cluster
+#' @param all.clusters all current clusters [list of vectors]
+#' @param nun.nodes number of nodes [scalar]
+#' @param directed whether network is directed or not [boolean]
+#' @return edge counts [matrix: dim = no. nodes x no. clusters]
+CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters, num.nodes, 
+                                                                   directed)
+{
+  K <- length(all.clusters)
+  edge.counts.matrix <- Matrix(rep(0, num.nodes*K), c(num.nodes, K))
+  
+  # loop through all nodes and all clusters
+  for(node in 1:num.nodes)
+  {
+    for(cluster in 1:K)
+    {
+      # if network undirected
+      if(directed == FALSE)
+      {
+        edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
+      }
+      
+      # if network directed
+      if(directed == TRUE)
+      {
+        edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]]) + 
+                                              sum(adj[all.clusters[[cluster]], node])
+      }
+    }
+  }
+  return(edge.counts.matrix)
+}
+#CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes, directed = FALSE)
+
+#****************************************************
+#'  Create global matrix of edge counts between every node and every cluster
+#' @param all.clusters all current clusters [list of vectors]
+#' @param nun.nodes number of nodes [scalar]
+#' @return edge counts [matrix: dim = no. clusters x no. clusters]
+CreateGlobalMatrixEdgeCountsBetweenClusters <- function(all.clusters, directed)
+{
+  K <- length(all.clusters)
+  
+  if(K == 1)
+  {
+    edge.counts.matrix <- diag(1)
+  }
+  else
+  {
+    edge.counts.matrix <- Matrix(rep(0, K*K), c(K, K)) 
+  }
+  
+  # loop through all clusters
+  for(cluster.row in 1:K)
+  {
+    for(cluster.column in 1:K)
+    {
+      if(directed == FALSE)
+      {
+        edge.counts.matrix[cluster.row, cluster.column] <- 
+          sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
+      }
+      if(directed == TRUE)
+      {
+        edge.counts.matrix[cluster.row, cluster.column] <- 
+          sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) +
+          sum(adj[all.clusters[[cluster.column]], all.clusters[[cluster.row]]]) 
+      }
+    }
+  }
+  return(edge.counts.matrix)
+}
+#CreateGlobalMatrixEdgeCountsBetweenClusters(all.clusters, directed)
+
+
+#****************************************************
+#'  Create global running total edge counts list
+#'  
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param N number of particles [scalar]
+#' @return edge counts [list of vectors]
+CreateGlobalRunningTotalEdgeCountList <- function(non.c.bar, N)
+{
+  # IF no non.c.bar clusters
+  if(length(non.c.bar) == 0)
+  {
+    edge.count.vector <- rep(0, 3)
+  }
+  
+  # IF at least 1 non.c.bar cluster
+  if(length(non.c.bar) > 0)
+  {
+    edge.count.vector <- rep(0, 3 + (2 * length(non.c.bar)))
+  }
+  
+  previous.edges.list <- lapply(1:N, list)
+  previous.edges.list <- lapply(previous.edges.list, function(x)
+  {
+    x <- edge.count.vector 
+  })
+  
+  return(previous.edges.list)
+}  
+#CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
 
 #****************************************************
 #'  Resample and change history of resampled particles
@@ -855,7 +1027,7 @@ ResampleAndChangeParticleHistory <- function(log.norm.weights, particles, N, t)
 }
 
 #****************************************************
-#'  Particle Gibbs Split Merge algorithm ("Algorithm 3")
+#'  Particle Gibbs Split-Merge algorithm ("Algorithm 3")
 #'  
 #' @param all.clusters all current clusters [list]
 #' @param adj adjacency matrix for SBM [matrix]
@@ -868,9 +1040,10 @@ ResampleAndChangeParticleHistory <- function(log.norm.weights, particles, N, t)
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter 1 [scalar]
 #' @param beta2 beta function parameter 2 [scalar]
-#' @return Updated c.bar
+#' @param directed is network directed or not [boolean]
+#' @return Updated c.bar [list of vectors]
 ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
-                                    resampling.threshold, alpha, beta1, beta2)
+                                    resampling.threshold, alpha, beta1, beta2, directed)
 {
   # uniform permutation on elements of s.bar - with anchors 1st and 2nd
   sigma <- SamplePermutation(s, s.bar)
@@ -881,10 +1054,15 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   particles[1,] <- MapClustersToAllocations(sigma, c.bar) # row 1: particle with conditional path
   particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
 
-  # define weights at t=1
+  # define weights and previous log gamma hats at t=1
   log.un.weights <- rep(log(1), N)
   log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
-
+  log.gamma.hat.previous <- rep(0, N)
+  
+  # set up global variables: for previous edge counts and log gamma at t=2
+  global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
+  global.log.gamma_2 <<- rep(0, N)
+  
   # Run SMC
   for(t in 2:n) # time iterations
   {
@@ -898,19 +1076,22 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 
     for(p in 1:N) # particle iterations
     {
-      # proposal allocation
+      # calculate proposal and weights
+      weights.output <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
+                                              log.previous.weight = log.un.weights[p], 
+                                              all.clusters, non.c.bar, adj, tau1, tau2, 
+                                              t, n, alpha, beta1, beta2, directed,
+                                              particle.index = p, log.gamma.hat.previous[p])
+      
+      # proposal allocations: don't change conditional path
       if(p >= 2)
       {
-        # proposal only uses particle up to time t-1
-        particles[p, t] <- Proposal(sigma, s, particles[p, 1:(t-1)], all.clusters, non.c.bar, 
-                                    adj, tau1, tau2, t, n, alpha, beta1, beta2)
+        particles[p, t] <- weights.output$proposal.allocation
       }
       
-      # unnormalised weights
-      log.un.weights[p] <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
-                                                 log.previous.weight = log.un.weights[p], 
-                                                 all.clusters, non.c.bar, adj, tau1, tau2, 
-                                                 t, n, alpha, beta1, beta2)
+      # update weights and previous log gamma hat
+      log.un.weights[p] <- weights.output$log.unnormalised.weight
+      log.gamma.hat.previous[p] <- weights.output$log.gamma.hat 
     }
   }
   
@@ -934,10 +1115,12 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter 1 [scalar]
 #' @param beta2 beta function parameter 2 [scalar]
+#' @param directed is network directed or not [boolean]
 #' @return Updated clustering
-SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha, beta1, beta2)
+SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha, 
+                       beta1, beta2, directed)
 {
-  s <- SelectAnchors(all.clusters)  # select anchors uniformly
+  #s <- SelectAnchors(all.clusters)  # select anchors uniformly
 
   # calculate c.bar and s.bar
   closure <- CalculateClosureOfAnchors(s, all.clusters)
@@ -950,9 +1133,17 @@ SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha, beta1,
                                          function(y){any(y == TRUE)})
   non.c.bar <- all.clusters[which(non.c.bar.cluster.indicators == FALSE)]
   
+  # calculate global variables
+  global.non.c.bar.indices <<- which(non.c.bar.cluster.indicators == FALSE)
+  global.counts.between.nodes.clusters <<- 
+    CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes = dim(adj)[1], 
+                                                           directed)
+  #global.matrix.between.clusters.counts <<- 
+  #  CreateGlobalMatrixEdgeCountsBetweenClusters(all.clusters, directed)
+  
   # update clustering
   updated.c.bar <- ParticleGibbsSplitMerge(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
-                                           resampling.threshold, alpha, beta1, beta2)
+                                           resampling.threshold, alpha, beta1, beta2, directed)
   unchanged.clusters <- all.clusters[all.clusters %!in% c.bar]
   
   # update according to whether a split or merge was performed
@@ -969,6 +1160,7 @@ SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha, beta1,
   
   return(updated.clustering)
 }
+
 
 #****************************************************
 #
