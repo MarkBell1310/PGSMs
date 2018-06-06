@@ -210,16 +210,13 @@ MapClustersToAllocations <- function(sigma, c.bar)
 #****************************************************
 #'  Count new edges WITHIN the c.bar clusters 
 #'  (between the new node and remaining nodes)
-#'  
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
 #' @param directed whether network is directed [boolean]
-#' 
-#' @return new edge counts WITHIN the c.bar clusters [vector] 
-#'         [vector length = 2]
+#' @return new edge counts WITHIN the c.bar clusters [vector: length = 2] 
 CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, particle, directed)
 {
   ## Count edges between new node and all remaining nodes in the same cluster
@@ -235,13 +232,15 @@ CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, partic
     # OR if 2 clusters AND new node added to cluster 1
     if(length(c.bar.current) == 1 || particle[t] == 3)
     {
-      return(c(sum(adj[sigma[t], c.bar.current[[1]]]), 0))
+      return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]), 0),
+                  "max.counts" = c(length(c.bar.current[[1]]) - 1, 0)))
     }
     
     # ELSE if 2 clusters AND new node added to cluster 2 
     if(particle[t] == 4)
     {
-      return(c(0, sum(adj[sigma[t], c.bar.current[[2]]])))
+      return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]])),
+                  "max.counts" = c(0, length(c.bar.current[[2]]) - 1)))
     }
   }
 
@@ -252,15 +251,17 @@ CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, partic
     # OR if 2 clusters AND new node added to cluster 1
     if(length(c.bar.current) == 1 || particle[t] == 3)
     {
-      return(c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
-                 sum(adj[c.bar.current[[1]], sigma[t]]), 0))
+      return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
+                                      sum(adj[c.bar.current[[1]], sigma[t]]), 0),
+                  "max.counts" = c(2 * (length(c.bar.current[[1]]) - 1), 0)))
     }
     
     # ELSE if 2 clusters AND new node added to cluster 2 
     if(particle[t] == 4)
     {
-      return(c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
-                    sum(adj[c.bar.current[[2]], sigma[t]])))
+      return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
+                                      sum(adj[c.bar.current[[2]], sigma[t]])),
+                  "max.counts" = c(0, 2 * (length(c.bar.current[[2]]) - 1)))) 
     }
   }
 }
@@ -288,13 +289,15 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
     # IF new node added to cluster 2
     if(particle[t] == 4)
     {
-      return(sum(adj[sigma[t], c.bar.current[[1]]]))
+      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[1]]]),
+                  "max.counts" = length(c.bar.current[[1]])))
     }
     
     # IF new node added to cluster 1
     if(particle[t] == 3)
     {
-      return(sum(adj[sigma[t], c.bar.current[[2]]]))
+      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[2]]]),
+                  "max.counts" = length(c.bar.current[[2]])))
     }
   }
   
@@ -304,15 +307,17 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
     # IF new node added to cluster 2
     if(particle[t] == 4)
     {
-      return(sum(adj[sigma[t], c.bar.current[[1]]]) +
-             sum(adj[c.bar.current[[1]], sigma[t]]))
+      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[1]]]) +
+                                  sum(adj[c.bar.current[[1]], sigma[t]]),
+                  "max.counts" = length(c.bar.current[[1]]) * 2))
     }
     
     # IF new node added to cluster 1
     if(particle[t] == 3)
     {
-      return(sum(adj[sigma[t], c.bar.current[[2]]]) +
-             sum(adj[c.bar.current[[2]], sigma[t]]))
+      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[2]]]) +
+                                  sum(adj[c.bar.current[[2]], sigma[t]]),
+                  "max.counts" = length(c.bar.current[[2]]) * 2))
     }
   }
 }
@@ -321,42 +326,54 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
 
 #****************************************************
 #'  Count new edges BETWEEN c.bar and non.c.bar clusters
-#'  
 #' @param global.counts.between.nodes.clusters Edge counts between every node & cluster [matrix]
 #' @param global.non.c.bar.indices Indices of non.c.bar clusters [vector]
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
 #' @param sigma Ordered elements of c.bar [vector]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param directed whether network is directed [boolean]
 #' @return new edge counts BETWEEN c.bar and non.c.bar clusters [vector]
 #'         [vector length = 2 * length(non.c.bar)]
 CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clusters, 
                                                global.non.c.bar.indices, c.bar.current, 
-                                               t, particle, sigma)
+                                               t, particle, sigma, non.c.bar, directed)
 {
   # Count edges between new node & each cluster of non.c.bar
   new.edge.counts <- 
     global.counts.between.nodes.clusters[sigma[t], global.non.c.bar.indices] 
+  m <- length(new.edge.counts)
+  
+  # if network undirected, max counts is correct - otherwise double the values
+  max.counts <- sapply(non.c.bar, length)
+  
+  if(directed == TRUE)
+  {
+    max.counts <- 2 * max.counts
+                         
+  }
   
   # Node added to cluster 1:
   # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
   if(length(c.bar.current) == 1 || particle[t] == 3)
   {
-    return(c(new.edge.counts, rep(0, length(new.edge.counts))))
+    return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+                "max.counts" = c(max.counts, rep(0, m))))
   }
   
   # Node added to cluster 2:
   # ELSE if 2 clusters AND new node added to cluster 2 
   if(particle[t] == 4)
   {
-    return(c(rep(0, length(new.edge.counts)), new.edge.counts))
+    return(list("edge.counts" = c(rep(0, m), new.edge.counts),
+                "max.counts" = c(rep(0, m), max.counts)))
   }
 }
-#CountNewEdgesBetweenCbarAndNonCbar(global.matrix.counts.nodes.clusters, global.non.c.bar.indices, c.bar.current, t, particle)
+#CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, global.non.c.bar.indices, c.bar.current, t, particle, sigma, non.c.bar, directed)
 
 #****************************************************
 #'  Count new edges for all 3 types
-#'  
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
@@ -364,7 +381,6 @@ CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clust
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
 #' @param directed whether network is directed [boolean]
-#' 
 #' @return new edge counts for all 3 types; in the correct form for RunningTotalEdgeCount()
 #'         function  [vector]
 NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed)  
@@ -379,18 +395,22 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
   #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
   
   # TYPE (1): nodes within clusters in c.bar
-  within.c.bar.current <- CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, 
-                                                          particle, directed)
+  within.c.bar <- CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, 
+                                                  particle, directed)
+  within.c.bar.edge.counts <- within.c.bar$edge.counts
+  within.c.bar.max.counts <- within.c.bar$max.counts
   
   # TYPE (2): nodes between clusters in c.bar (c.bar must have 2 clusters)
   if(length(c.bar.current) == 2)
   {
-    between.c.bar.current <- CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, 
-                                                              particle, directed)
+    between.c.bar <- CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, 
+                                                      particle, directed)
+    between.c.bar.edge.counts <- between.c.bar$edge.counts
+    between.c.bar.max.counts <- between.c.bar$max.counts
   }
   else
   {
-    between.c.bar.current <- 0
+    between.c.bar.edge.counts <- between.c.bar.max.counts <- 0
   }
   
   # TYPE (3): nodes between c.bar and non c.bar clusters
@@ -399,14 +419,20 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
     between.c.bar.non.c.bar <- 
       CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, 
                                          global.non.c.bar.indices, c.bar.current, 
-                                         t, particle, sigma)
+                                         t, particle, sigma, non.c.bar, directed)
+    between.c.bar.non.c.bar.edge.counts <- between.c.bar.non.c.bar$edge.counts
+    between.c.bar.non.c.bar.max.counts <- between.c.bar.non.c.bar$max.counts
   }
   else
   {
-    between.c.bar.non.c.bar <- NULL # if no non.c.bar clusters, set to NULL
+    # if no non.c.bar clusters, set to NULL
+    between.c.bar.non.c.bar.edge.counts <- between.c.bar.non.c.bar.max.counts <- NULL
   }
   
-  return(c(within.c.bar.current, between.c.bar.current, between.c.bar.non.c.bar))
+  return(list("edge.counts" = c(within.c.bar.edge.counts, between.c.bar.edge.counts, 
+                                between.c.bar.non.c.bar.edge.counts),
+              "max.counts" = c(within.c.bar.max.counts, between.c.bar.max.counts, 
+                               between.c.bar.non.c.bar.max.counts)))
 }
 #NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed = FALSE)  
 
@@ -422,85 +448,25 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
 #' @param directed is network directed or not [boolean]
 #' @param particle.index index of particle [scalar]
 #' @return total edge counts [vector]
-RunningTotalEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,
-                                   particle.index)
+RunningTotalsEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,
+                                  particle.index)
 {
-  # Uses global previous edge counts list to update to new total 
-  running.total <- global.running.total.edge.counts[[particle.index]] + 
-                NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed) 
+  # new edge counts
+  new.counts <- NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed) 
+  new.edge.counts <- new.counts$edge.counts
+  new.max.counts <- new.counts$max.counts
   
-  return(running.total)
+  # update running totals - but don't update global variables until particle chosen
+  edge.count.running.total <- global.running.total.edge.counts[[particle.index]] + new.edge.counts
+  max.count.running.total <- global.running.total.max.counts[[particle.index]] + new.max.counts
+
+  return(list("edge.count.running.total" = edge.count.running.total,
+              "max.count.running.total" = max.count.running.total))
 }
-#RunningTotalEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,particle.index)
+#RunningTotalsEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,particle.index)
 
 #****************************************************
-#'  Calculate maximum edge counts 
-#'  
-#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
-#' @param non.c.bar clusters that do not contain the anchors [list]
-#' @param directed is network directed or not [boolean]
-#' @return maximum edge counts [vector]
-MaximumEdgeCounts <- function(c.bar.current, non.c.bar, directed)
-{
-  # As for edge counts, the output vector assumes following (2 clusters in c.bar) form:
-  # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
-  #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
-  max.counts.within.c.bar <- sapply(1:length(c.bar.current), function(x)
-  {
-    0.5 * length(c.bar.current[[x]]) * (length(c.bar.current[[x]]) - 1)
-  })
-  
-  # c.bar.current must have 2 clusters
-  if(length(c.bar.current) == 2)
-  {
-    max.counts.between.c.bar <- length(c.bar.current[[1]]) * length(c.bar.current[[2]])
-  }
-  
-  # max edge counts BETWEEN all c.bar.current and non.c.bar clusters
-  if(length(non.c.bar) >= 1)
-  {
-    max.counts.between.c.bar.non.c.bar <- as.integer(sapply(c.bar.current, function(z)
-    {
-      return(sapply(non.c.bar, function(x)
-      {
-        length(z) * length(x)
-      }))
-    }))
-    
-    # get in correct form 
-    if(length(c.bar.current) == 1)
-    {
-      max.counts.between.c.bar.non.c.bar <- c(max.counts.between.c.bar.non.c.bar,
-                                              rep(0, length(non.c.bar)))
-    }
-  }
-  if(length(non.c.bar) == 0)
-  {
-    max.counts.between.c.bar.non.c.bar <- NULL
-  }
-  
-  # get in correct form 
-  if(length(c.bar.current) == 1)
-  {
-    max.counts.within.c.bar <- c(max.counts.within.c.bar, 0)
-    max.counts.between.c.bar <- 0
-  }
-  
-  # For directed graph, double the max.counts for undirected graph
-  if(directed == TRUE)
-  {
-    max.counts.within.c.bar <- 2 * max.counts.within.c.bar
-    max.counts.between.c.bar <- 2 * max.counts.between.c.bar
-    max.counts.between.c.bar.non.c.bar <- 2 * max.counts.between.c.bar.non.c.bar
-  }
-  
-  return(c(max.counts.within.c.bar, max.counts.between.c.bar, max.counts.between.c.bar.non.c.bar))
-}
-#MaximumEdgeCounts(c.bar.current, non.c.bar, directed = FALSE)
-
-
-#****************************************************
-#'  Counts for likelihood - Remove redundant zeros
+#'  Counts for likelihood - Remove redundant elements of count vectors
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
@@ -528,13 +494,16 @@ CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle,
   # IF split particle then leave edge counts in their current form below ("FORM 1"):
   #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ... ,
   #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
-  total.edge.counts <- RunningTotalEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
-                                              particle, t, directed, particle.index)
-  max.edge.counts <- MaximumEdgeCounts(c.bar.current, non.c.bar, directed)
-  reduced.edge.counts <- total.edge.counts
+  running.totals <- RunningTotalsEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
+                                            particle, t, directed, particle.index)
+  edge.count.running.total <- running.totals$edge.count.running.total
+  max.count.running.total <- running.totals$max.count.running.total
+  
+  likelihood.edge.count.total <- edge.count.running.total
+  likelihood.max.count.total <- max.count.running.total
   
   ##### Merge particle
-  # IF merge particle then remove redundant elements of edge count vectors ("FORM 2"):
+  # IF merge particle then remove redundant elements of vectors for likelihood calc ("FORM 2"):
   #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
   if(particle[2] == 2)
   {
@@ -543,22 +512,25 @@ CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle,
     # IF there is at least one non.c.bar cluster
     if(m > 0)
     {
-      reduced.edge.counts <- total.edge.counts[-c(2, 3, (3 + m + 1):length(total.edge.counts))]
-      max.edge.counts <- max.edge.counts[-c(2, 3, (3 + m + 1):length(max.edge.counts))] 
+      likelihood.edge.count.total <- 
+        edge.count.running.total[-c(2, 3, (3 + m + 1):length(edge.count.running.total))]
+      likelihood.max.count.total <- 
+        max.count.running.total[-c(2, 3, (3 + m + 1):length(max.count.running.total))] 
     }
     
     # IF there are no non.c.bar clusters
     if(m == 0)
     {
-      reduced.edge.counts <- total.edge.counts[-c(2, 3)]
-      max.edge.counts <- max.edge.counts[-c(2, 3)]
+      likelihood.edge.count.total <- edge.count.running.total[-c(2, 3)]
+      likelihood.max.count.total <- max.count.running.total[-c(2, 3)]
     }  
   }
-  return(list("edge.counts.running.total" = total.edge.counts, 
-              "edge.counts.likelihood" = reduced.edge.counts,
-              "max.edge.counts" = max.edge.counts))
+  return(list("edge.count.running.total" = edge.count.running.total,
+              "max.count.running.total" = max.count.running.total,
+              "likelihood.edge.count.total" = likelihood.edge.count.total,
+              "likelihood.max.count.total" = likelihood.max.count.total))
 }
-#CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, t, directed = FALSE)
+#CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, t, directed, particle.index)
 
 #****************************************************
 #'  Log of intermediate target distribution at time t (Log "Gamma")
@@ -584,17 +556,18 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
                                   particle.index)
 {
   # count relevant edges within and between clusters
-  all.edge.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
-                                         t, directed, particle.index)
-  counts <- all.edge.counts$edge.counts.likelihood
-  max.counts <- all.edge.counts$max.edge.counts
-  n <- length(counts)
+  all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                    t, directed, particle.index)
+  edge.counts <- all.counts$likelihood.edge.count.total
+  max.counts <- all.counts$likelihood.max.count.total
+  n <- length(edge.counts)
   
   # product of all between-cluster log likelihoods 
   log.likelihoods <- rep(0, n)
   for (i in 1:n)
   {
-    log.likelihoods[i] <-  log(beta(beta1 + counts[i], max.counts[i] - counts[i] + beta2)) - 
+    log.likelihoods[i] <-  log(beta(beta1 + edge.counts[i], 
+                                    max.counts[i] - edge.counts[i] + beta2)) - 
                             log(beta(beta1, beta2))
   }
   
@@ -609,11 +582,10 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.curren
   log.int.target <- log.prior + sum.log.likelihoods
   
   return(list("log.int.target" = log.int.target,
-              "edge.counts" = all.edge.counts$edge.counts.running.total))
+              "edge.count.running.total" = all.counts$edge.count.running.total,
+              "max.count.running.total" = all.counts$max.count.running.total))
 }   
-#LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-#                      adj, tau1, tau2, t, alpha, beta1, beta2)$log.int.target
-
+#LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, adj, tau1, tau2, t, alpha, beta1, beta2, directed, particle.index)
 
 #****************************************************
 #' Log of Improved intermediate target distribution (Log "Gamma hat")
@@ -657,7 +629,8 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
                               log.gamma_t
   
   return(list("log.imp.int.target" = log.improved.int.target,
-              "edge.counts" = log.intermediate.target$edge.counts))
+              "edge.count.running.total" = log.intermediate.target$edge.count.running.total,
+              "max.count.running.total" = log.intermediate.target$max.count.running.total))
 }
 
 #****************************************************
@@ -692,7 +665,8 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, adj
     LogImprovedIntermediateTarget(sigma, s, stay.particle, all.clusters, non.c.bar, adj, 
                                   tau1, tau2, t, n, alpha, beta1, beta2, directed, particle.index)
   log.stay.gamma.hat <- log.stay.improved.int.target$log.imp.int.target
-  stay.edge.counts <- log.stay.improved.int.target$edge.counts
+  stay.edge.counts <- log.stay.improved.int.target$edge.count.running.total
+  stay.max.counts <- log.stay.improved.int.target$max.count.running.total
   
   # if previous allocation was merge (#2), then current allocation is always merge (#2)
   if(previous.allocation == 2)
@@ -701,7 +675,8 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, adj
                 "log.move.gamma.hat" = NULL,  
                 "previous.allocation" = 2,
                 "alternative.allocation" = NULL,
-                "stay.edge.counts" = stay.edge.counts))
+                "stay.edge.counts" = stay.edge.counts,
+                "stay.max.counts" = stay.max.counts))
   }
   
   # otherwise split is performed (#3 or #4)
@@ -715,20 +690,23 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, adj
     LogImprovedIntermediateTarget(sigma, s, move.particle, all.clusters, non.c.bar, adj, 
                                   tau1, tau2, t, n, alpha, beta1, beta2, directed, particle.index)
   log.move.gamma.hat <- log.move.improved.int.target$log.imp.int.target
-  move.edge.counts <- log.move.improved.int.target$edge.counts
+  move.edge.counts <- log.move.improved.int.target$edge.count.running.total
+  move.max.counts <- log.move.improved.int.target$max.count.running.total
   
   return(list("log.stay.gamma.hat" = log.stay.gamma.hat,
               "log.move.gamma.hat" = log.move.gamma.hat,
               "previous.allocation" = previous.allocation,
               "alternative.allocation" = alternative.allocation,
               "stay.edge.counts" = stay.edge.counts,
-              "move.edge.counts" = move.edge.counts))
+              "move.edge.counts" = move.edge.counts,
+              "stay.max.counts" = stay.max.counts,
+              "move.max.counts" = move.max.counts))
 }
+#PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, t, n, alpha, beta1, beta2, directed, particle.index)
 
 
 #****************************************************
 #'  Improved proposal distribution ("q hat")
-#'  
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
@@ -773,8 +751,11 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
                             non.c.bar, adj, tau1, tau2, t = 2, alpha, beta1, 
                             beta2, directed, particle.index)
     
-    # update edge count running total
-    global.running.total.edge.counts[[particle.index]] <<- log.intermediate.target$edge.counts
+    # update edge count running totals
+    global.running.total.edge.counts[[particle.index]] <<- 
+      log.intermediate.target$edge.count.running.total
+    global.running.total.max.counts[[particle.index]] <<- 
+      log.intermediate.target$max.count.running.total
     
     # store global.log.gamma_2
     global.log.gamma_2[particle.index] <<- log.intermediate.target$log.int.target
@@ -795,6 +776,8 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
   if(particle[2] == 2)
   {
     global.running.total.edge.counts[[particle.index]] <<- possible.allocations$stay.edge.counts
+    global.running.total.max.counts[[particle.index]] <<- possible.allocations$stay.max.counts
+    
     return(list("allocation" = 2,
                 "log.stay.gamma.hat" = possible.allocations$log.stay.gamma.hat,
                 "log.move.gamma.hat" = NULL, 
@@ -820,6 +803,7 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
     proposal.allocation <- possible.allocations$previous.allocation
     log.gamma.hat <- possible.allocations$log.stay.gamma.hat
     global.running.total.edge.counts[[particle.index]] <<- possible.allocations$stay.edge.counts
+    global.running.total.max.counts[[particle.index]] <<- possible.allocations$stay.max.counts
   }
   # ELSE we move (choose different) decision
   else
@@ -827,6 +811,7 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
     proposal.allocation <- possible.allocations$alternative.allocation
     log.gamma.hat <- possible.allocations$log.move.gamma.hat
     global.running.total.edge.counts[[particle.index]] <<- possible.allocations$move.edge.counts
+    global.running.total.max.counts[[particle.index]] <<- possible.allocations$move.max.counts
   }
 
   return(list("allocation" = proposal.allocation,
@@ -838,7 +823,6 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
 
 #****************************************************
 #'  Log of improved unnormalised weights ("w hat")
-#'  
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
@@ -1061,6 +1045,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   
   # set up global variables: for previous edge counts and log gamma at t=2
   global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
+  global.running.total.max.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
   global.log.gamma_2 <<- rep(0, N)
   
   # Run SMC
