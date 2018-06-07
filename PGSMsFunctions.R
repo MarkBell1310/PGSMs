@@ -1061,6 +1061,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   particles <- matrix(rep(0, N*n), c(N, n))
   particles[1,] <- MapClustersToAllocations(sigma, c.bar) 
   particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
+  skip.particle.indices <- NULL # only need to calculate weights for single merge particle
 
   # define weights and previous log gamma hats at t=1
   log.un.weights <- rep(log(1), N)
@@ -1083,7 +1084,8 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       log.un.weights <- rep(log(1), N) # reset the weights
     }
 
-    for(p in 1:N) # particle iterations
+    particle.indices <- which(1:N %!in% skip.particle.indices == TRUE)
+    for(p in particle.indices) # particle iterations
     {
       # calculate proposal and weights
       weights.output <- LogUnnormalisedWeight(sigma, s, particle = particles[p, 1:t], 
@@ -1102,6 +1104,24 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       log.un.weights[p] <- weights.output$log.unnormalised.weight
       log.gamma.hat.previous[p] <- weights.output$log.gamma.hat 
     }
+    
+    # only need to calculate weights for single merge particle
+    if(t == 2)
+    {
+      merge.particle.indices <- which(particles[,2] == 2)
+        
+      if(length(merge.particle.indices) > 1)
+      {
+        first.merge.particle.index <- merge.particle.indices[1] 
+        skip.particle.indices <- merge.particle.indices[-1]
+      }
+    }
+  }
+  
+  # set weights for remaining merge particles  
+  if(length(merge.particle.indices) > 1)
+  {
+    log.un.weights[skip.particle.indices] <- log.un.weights[first.merge.particle.index]
   }
   
   # normalised weights

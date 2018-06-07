@@ -33,16 +33,18 @@ n <- length(sigma)
 
 # define particle matrix & fix 1st particle of each generation to conditional path
 particles <- matrix(rep(0, N*n), c(N, n))
-particles[1,] <- MapClustersToAllocations(sigma, c.bar) # row 1: particle with conditional path
+particles[1,] <- MapClustersToAllocations(sigma, c.bar) 
 particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
+skip.particle.indices <- NULL # only need to calculate weights for single merge particle
 
-# define weights at t=1
+# define weights and previous log gamma hats at t=1
 log.un.weights <- rep(log(1), N)
 log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
 log.gamma.hat.previous <- rep(0, N)
 
 # set up global variables: for previous edge counts and log gamma at t=2
 global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
+global.running.total.max.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
 global.log.gamma_2 <<- rep(0, N)
 
 # Run SMC
@@ -56,10 +58,11 @@ for(t in 2:n) # time iterations
     log.un.weights <- rep(log(1), N) # reset the weights
   }
   
-  for(p in 1:N) # particle iterations
+  particle.indices <- which(1:N %!in% skip.particle.indices == TRUE)
+  for(p in particle.indices) # particle iterations
   {
     # calculate proposal and weights
-    weights.output <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
+    weights.output <- LogUnnormalisedWeight(sigma, s, particle = particles[p, 1:t], 
                                             log.previous.weight = log.un.weights[p], 
                                             all.clusters, non.c.bar, adj, tau1, tau2, 
                                             t, n, alpha, beta1, beta2, directed,
@@ -75,8 +78,21 @@ for(t in 2:n) # time iterations
     log.un.weights[p] <- weights.output$log.unnormalised.weight
     log.gamma.hat.previous[p] <- weights.output$log.gamma.hat 
   }
+  
+  # only need to calculate weights for single merge particle
+  if(t == 2)
+  {
+    merge.particle.indices <- which(particles[,2] == 2)
+    
+    if(length(merge.particle.indices) > 1)
+    {
+      first.merge.particle.index <- merge.particle.indices[1] 
+      skip.particle.indices <- merge.particle.indices[-1]
+    }
+  }
 }
 
+#####
 # debug
 particle.index = p
 particle = particles[p, 1:t]
@@ -85,6 +101,13 @@ if(is.null(c.bar.current[[2]]))
 {
   c.bar.current <- list(c.bar.current[[1]])
 }; c.bar.current
+#####
+
+# set weights for remaining merge particles  
+if(length(merge.particle.indices) > 1)
+{
+  log.un.weights[skip.particle.indices] <- log.un.weights[first.merge.particle.index]
+}
 
 # normalised weights
 log.norm.weights <- sapply(log.un.weights, function(x){x - logSumExp(log.un.weights)})
