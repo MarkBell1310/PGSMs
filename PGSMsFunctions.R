@@ -539,7 +539,6 @@ CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle,
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param all.clusters set of all clusters ("c") [list]
-#' @param c.bar.current clusters that contain the anchors, filled up to time t [list] 
 #' @param non.c.bar clusters not containing anchors [list]
 #' @param adj adjacency matrix of SBM [matrix]
 #' @param tau1 factorisation of prior [function]
@@ -551,10 +550,17 @@ CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle,
 #' @param directed is network directed or not [boolean]
 #' @param particle.index index of particle [scalar]
 #' @return log of intermeduate target distribution
-LogIntermediateTarget <- function(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, 
-                                  adj, tau1, tau2, t, alpha, beta1, beta2, directed, 
+LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, adj, 
+                                  tau1, tau2, t, alpha, beta1, beta2, directed, 
                                   particle.index)
 {
+  # calculate "c.bar.current": c.bar at time t
+  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
+  if(is.null(c.bar.current[[2]]))
+  {
+    c.bar.current <- list(c.bar.current[[1]])
+  }
+  
   # count relevant edges within and between clusters
   all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
                                     t, directed, particle.index)
@@ -610,18 +616,10 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
                                           adj, tau1, tau2, t, n, alpha, beta1, beta2, 
                                           directed, particle.index)
 {
-  # calculate "c.bar.current": c.bar at time t
-  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-  if(is.null(c.bar.current[[2]]))
-  {
-    c.bar.current <- list(c.bar.current[[1]])
-  }
-  
   # log intermediate target at current time t
   log.intermediate.target <- LogIntermediateTarget(sigma, s, particle, all.clusters, 
-                                                   c.bar.current, non.c.bar, adj, tau1, tau2, 
-                                                   t, alpha, beta1, beta2, directed,
-                                                   particle.index)
+                                                   non.c.bar, adj, tau1, tau2, t, alpha, 
+                                                   beta1, beta2, directed, particle.index)
   log.gamma_t <- log.intermediate.target$log.int.target
   
   # log improved intermediate target ("gamma hat"): also uses gamma at t=2
@@ -726,30 +724,25 @@ PossibleAllocations <- function(sigma, s, particle, all.clusters, non.c.bar, adj
 Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
                      t, n, alpha, beta1, beta2, directed, particle.index)
 {
-  ## SPECIAL CASE: t=2 
+  ##--------------------------------------
+  ## CASE 1: t = 2 
+  # log gamma hats = 0 but need to store edge counts for running totals and global.log.gamma_2
   # allocation decisions at t=1 for all particles are #1 - so cannot use previous values
-  # proposal allocation: equal chance of decision #2 (merge) or #4 (split)
-  # gamma hats = 0 but we still need to store the edge counts for running totals
-  # and edge counts depend on allocation decision at t=2 
+  # proposal allocation (for p>1): equal chance of decision #2 (merge) or #4 (split)
   if(t == 2)
   { 
-    # determine allocation decision and particle
+    # determine chosen allocation decision and resulting particle
     allocation <- ifelse(runif(1) < 0.5, 2, 4)
-    particle <- c(1, allocation )
-    
-    # calculate "c.bar.current": c.bar at time t
-    c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-    if(is.null(c.bar.current[[2]]))
+    if(particle.index > 1)
     {
-      c.bar.current <- list(c.bar.current[[1]])
+      particle <- c(1, allocation )
     }
     
-    # calculate edge count running total and global_log.gamma_2
+    # calculate edge count running totals and global_log.gamma_2
     # (global.log.gamma_2 not used until t = 3)
     log.intermediate.target <-  
-      LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, 
-                            non.c.bar, adj, tau1, tau2, t = 2, alpha, beta1, 
-                            beta2, directed, particle.index)
+      LogIntermediateTarget(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
+                            t, alpha, beta1, beta2, directed, particle.index)
     
     # update edge count running totals
     global.running.total.edge.counts[[particle.index]] <<- 
@@ -766,7 +759,10 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
                 "log.gamma.hat" = 0))
   }
   
-  ## For t>2:
+  ##--------------------------------------
+  ## CASE 2: t > 2, any merge particles
+  ## -only needs the "stay" scenario
+  
   # possible allocations - and the log gamma.hats of staying in current state or moving
   possible.allocations <- PossibleAllocations(sigma, s, particle, all.clusters, non.c.bar, 
                                               adj, tau1, tau2, t, n, alpha, beta1, beta2,
@@ -794,10 +790,37 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
                        logSumExp(lx = c(possible.allocations$log.stay.gamma.hat,
                                         possible.allocations$log.move.gamma.hat))
   
-  ## Select proposal allocation decision and corresponding log.gamma.hat 
-  ## Edge counts added to running totals
+  ##--------------------------------------
+  ## CASE 3: t > 2, particle.index = 1 (where 1st particle is a split)
+  #  -Use particle from conditional path to calculate log gamma hat
+  #  -also store the corresponding edge count running totals
+  #  -still need to output the log.stay.gamma.hat and log.move.gamma.hat - for the weights  
+  if(particle.index == 1 && t > 2)
+  {
+    # calculate edge count running total and log gamma hat
+    log.imp.int.target <-  
+      LogImprovedIntermediateTarget(sigma, s, particle, all.clusters, non.c.bar, 
+                                    adj, tau1, tau2, t, n, alpha, beta1, beta2, 
+                                    directed, particle.index)
+    
+    # update edge count running totals
+    global.running.total.edge.counts[[particle.index]] <<- 
+      log.imp.int.target$edge.count.running.total
+    global.running.total.max.counts[[particle.index]] <<- 
+      log.imp.int.target$max.count.running.total
+    
+    return(list("allocation" = particle[t],
+                "log.stay.gamma.hat" = possible.allocations$log.stay.gamma.hat,
+                "log.move.gamma.hat" = possible.allocations$log.move.gamma.hat,
+                "log.gamma.hat" = log.imp.int.target$log.imp.int.target))
+  }
   
-  # IF we stay (repeat) previous decision
+  ##--------------------------------------
+  ## CASE 4: t > 2, any split particles with particle.index > 1 
+  #  -Select proposal allocation decision and corresponding log.gamma.hat 
+  #  -Edge counts added to running totals
+  
+  # IF we "stay" (repeat) previous decision
   if(log(runif(1)) < log.proposal.prob)
   {
     proposal.allocation <- possible.allocations$previous.allocation
@@ -805,7 +828,7 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
     global.running.total.edge.counts[[particle.index]] <<- possible.allocations$stay.edge.counts
     global.running.total.max.counts[[particle.index]] <<- possible.allocations$stay.max.counts
   }
-  # ELSE we move (choose different) decision
+  # ELSE we "move" (choose different) decision
   else
   {
     proposal.allocation <- possible.allocations$alternative.allocation
@@ -814,6 +837,7 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
     global.running.total.max.counts[[particle.index]] <<- possible.allocations$move.max.counts
   }
 
+  
   return(list("allocation" = proposal.allocation,
               "log.stay.gamma.hat" = possible.allocations$log.stay.gamma.hat,
               "log.move.gamma.hat" = possible.allocations$log.move.gamma.hat,
@@ -846,8 +870,8 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.c
                                   directed, particle.index, log.gamma.hat.previous)
 {
   # Proposal 
-  proposal <- Proposal(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
-                       t, n, alpha, beta1, beta2, directed, particle.index)
+  proposal <- Proposal(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, t, n, 
+                       alpha, beta1, beta2, directed, particle.index)
 
   # At t=2 unnormalised weights = 2 since ratios of gamma.hats = 1 
   if(t == 2)
@@ -1035,7 +1059,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 
   # define particle matrix & fix 1st particle of each generation to conditional path
   particles <- matrix(rep(0, N*n), c(N, n))
-  particles[1,] <- MapClustersToAllocations(sigma, c.bar) # row 1: particle with conditional path
+  particles[1,] <- MapClustersToAllocations(sigma, c.bar) 
   particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
 
   # define weights and previous log gamma hats at t=1
@@ -1062,7 +1086,7 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
     for(p in 1:N) # particle iterations
     {
       # calculate proposal and weights
-      weights.output <- LogUnnormalisedWeight(sigma, s, particles[p, 1:t], 
+      weights.output <- LogUnnormalisedWeight(sigma, s, particle = particles[p, 1:t], 
                                               log.previous.weight = log.un.weights[p], 
                                               all.clusters, non.c.bar, adj, tau1, tau2, 
                                               t, n, alpha, beta1, beta2, directed,
