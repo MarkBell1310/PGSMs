@@ -10,6 +10,7 @@
 sbm <- sample_sbm(n = 20,
                   pref.matrix = matrix(c(0.99, 0, 0, 0.1), c(2, 2)),
                   block.sizes = c(10, 10), directed = FALSE, loops = FALSE); plot(sbm)
+num.clusters <- 4
 sbm <- sample_sbm(n = 20,
                   pref.matrix = forceSymmetric(matrix(runif(num.clusters^2),
                                                       (c(num.clusters, num.clusters)))),
