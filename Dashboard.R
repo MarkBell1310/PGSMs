@@ -24,6 +24,7 @@ beta2 <- 1
 N <- 20    # no. particles: (Bouchard uses 20)
 resampling.threshold <- 0.5
 n.iters <- 1000
+as.probability <- 0.0 # probability of ancester sampling step 
 
 # perform PGSMs
 clusters <- start.clusters
@@ -32,7 +33,8 @@ start <- proc.time()
 for(i in 1:n.iters)
 {
   s <- SelectAnchors(clusters)
-  clusters <- SplitMerge(s, clusters, adj, N, resampling.threshold, alpha, beta1, beta2, directed)
+  clusters <- SplitMerge(s, clusters, adj, N, resampling.threshold, alpha, beta1, beta2, 
+                         directed, as.probability)
   if(i %% 10 == 0) {cat(paste0("iteration: ", i, "\n"))}
   num.clusters[i] <- length(clusters)
   print(num.clusters[i])

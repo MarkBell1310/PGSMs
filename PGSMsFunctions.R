@@ -595,7 +595,6 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
 
 #****************************************************
 #' Log of Improved intermediate target distribution (Log "Gamma hat")
-#'
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
@@ -850,7 +849,7 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t-1 [vector]
-#' @param log.previous.weight log of unnormalised weight at time t-1 [scalar]
+#' @param log.previous.unnormalised.weight log of unnormalised weight at time t-1 [scalar]
 #' @param all.clusters set of all clusters ("c") [list]
 #' @param non.c.bar clusters not containing anchors [list]
 #' @param adj adjacency matrix of SBM [matrix]
@@ -865,9 +864,9 @@ Proposal <- function(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau
 #' @param particle.index index of particle [scalar]
 #' @param log.gamma.hat.previous log intermediate target at time t-1 [scalar]
 #' @return log unnormalised weight at time t
-LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.clusters, 
-                                  non.c.bar, adj, tau1, tau2, t, n, alpha, beta1, beta2, 
-                                  directed, particle.index, log.gamma.hat.previous)
+LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.unnormalised.weight, 
+                                  all.clusters, non.c.bar, adj, tau1, tau2, t, n, alpha, 
+                                  beta1, beta2, directed, particle.index, log.gamma.hat.previous)
 {
   # Proposal 
   proposal <- Proposal(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, t, n, 
@@ -896,7 +895,7 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.weight, all.c
   }
   
   # update the unnormalised weight
-  log.unnormalised.weight <- log.previous.weight + log.weight.update
+  log.unnormalised.weight <- log.previous.unnormalised.weight + log.weight.update
   
   return(list("log.unnormalised.weight" = log.unnormalised.weight,
               "proposal.allocation" = proposal$allocation,
@@ -1035,6 +1034,51 @@ ResampleAndChangeParticleHistory <- function(log.norm.weights, particles, N, t)
 }
 
 #****************************************************
+#'  Perform ancestor sampling
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param s Anchor points [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param log.previous.unnormalised.weight log of unnormalised weight at time t-1 [scalar]
+#' @param log.gamma.hat.previous log intermediate target at time t-1 [scalar]
+#' @param all.clusters set of all clusters ("c") [list]
+#' @param non.c.bar clusters not containing anchors [list]
+#' @param adj adjacency matrix of SBM [matrix]
+#' @param tau1 factorisation of prior [function]
+#' @param tau2 factorisation of prior [function]
+#' @param t current time [scalar]
+#' @param n maximum time [scalar]
+#' @param alpha tau1 parameter [scalar]
+#' @param beta1 beta function parameter [scalar]
+#' @param beta2 beta function parameter [scalar]
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
+#' @param conditional.path the conditional path of allocation decisions (particle 1) [vector]
+#' @return concatenated particle & ancestor sampling weight for the input particle [scalar]
+AncestorSampling <- function(sigma, s, particle, log.previous.unnormalised.weight, 
+                             log.gamma.hat.previous, all.clusters, non.c.bar, adj, 
+                             tau1, tau2, t, n, alpha, beta1, beta2, directed, 
+                             particle.index, conditional.path)
+{
+  # concatenate previous path of particle with future conditional path values
+  concatenated.particle <- c(particle[1:(t-1)], conditional.path[t:n])
+  
+  # calculate log gamma hat for concatenated particle at final time t = n
+  conc.log.gamma.hat <- LogImprovedIntermediateTarget(sigma, s, particle = concatenated.particle, 
+                                                      all.clusters, non.c.bar, adj, tau1, tau2, 
+                                                      t = n, n, alpha, beta1, beta2, directed, 
+                                                      particle.index)
+  
+  # calculate ancestor sampling weights
+  log.a.s.weight <- log.previous.unnormalised.weight + 
+                    conc.log.gamma.hat$log.imp.int.target - 
+                    log.gamma.hat.previous
+  
+  return(list("log.a.s.weight" = log.a.s.weight,
+              "concatenated.particle" = concatenated.particle))
+}
+
+
+#****************************************************
 #'  Particle Gibbs Split-Merge algorithm ("Algorithm 3")
 #'  
 #' @param all.clusters all current clusters [list]
@@ -1048,18 +1092,20 @@ ResampleAndChangeParticleHistory <- function(log.norm.weights, particles, N, t)
 #' @param alpha tau1 parameter [scalar]
 #' @param beta1 beta function parameter 1 [scalar]
 #' @param beta2 beta function parameter 2 [scalar]
-#' @param directed is network directed or not [boolean]
+#' @param directed is network directed or not? [boolean]
+#' @param as.probability probability of ancester sampling step at each iteration [scalar]
 #' @return Updated c.bar [list of vectors]
 ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
-                                    resampling.threshold, alpha, beta1, beta2, directed)
+                                    resampling.threshold, alpha, beta1, beta2, directed,
+                                    as.probability)
 {
   # uniform permutation on elements of s.bar - with anchors 1st and 2nd
   sigma <- SamplePermutation(s, s.bar)
   n <- length(sigma)
 
   # define particle matrix & fix 1st particle of each generation to conditional path
-  particles <- matrix(rep(0, N*n), c(N, n))
-  particles[1,] <- MapClustersToAllocations(sigma, c.bar) 
+  particles <- as.particles <- matrix(rep(0, N*n), c(N, n))
+  particles[1,] <- conditional.path <- MapClustersToAllocations(sigma, c.bar) 
   particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
   skip.particle.indices <- NULL # only need to calculate weights for single merge particle
 
@@ -1067,8 +1113,9 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   log.un.weights <- rep(log(1), N)
   log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
   log.gamma.hat.previous <- rep(0, N)
+  as.flag <- FALSE; 
   
-  # set up global variables: for previous edge counts and log gamma at t=2
+  # set up global variables: for running totals of edge counts and log gamma at t=2
   global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
   global.running.total.max.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
   global.log.gamma_2 <<- rep(0, N)
@@ -1083,13 +1130,37 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       particles <- ResampleAndChangeParticleHistory(log.norm.weights, particles, N, t-1)
       log.un.weights <- rep(log(1), N) # reset the weights
     }
-
+    
+    # skip weights calculation for any additional merge particles 
     particle.indices <- which(1:N %!in% skip.particle.indices == TRUE)
+    
+    # conditions required for ancestor sampling 
+    if(t > 3 && runif(1) <= as.probability && conditional.path[2] != 2 && 
+       num.split.particles > 1)
+    {
+      as.flag <- TRUE
+      as.weights <- rep(0, N)
+      as.particles <- array(rep(0, N * n), c(N, n))
+    }
+    
     for(p in particle.indices) # particle iterations
     {
+      # ancestor sampling only if conditional path is split particle
+      if(as.flag == TRUE && p %in% split.particle.indices)
+      {
+        as.output <- AncestorSampling(sigma, s, particle = particles[p, 1:t], 
+                                      log.previous.unnormalised.weight = log.un.weights[p], 
+                                      log.gamma.hat.previous = log.gamma.hat.previous[p], 
+                                      all.clusters, non.c.bar, adj, tau1, tau2, t, n, alpha, 
+                                      beta1, beta2, directed, particle.index = p, 
+                                      conditional.path)
+        as.weights[p] <- as.output$log.a.s.weight
+        as.particles[p, ] <- as.output$concatenated.particle
+      }
+      
       # calculate proposal and weights
       weights.output <- LogUnnormalisedWeight(sigma, s, particle = particles[p, 1:t], 
-                                              log.previous.weight = log.un.weights[p], 
+                                              log.previous.unnormalised.weight = log.un.weights[p], 
                                               all.clusters, non.c.bar, adj, tau1, tau2, 
                                               t, n, alpha, beta1, beta2, directed,
                                               particle.index = p, log.gamma.hat.previous[p])
@@ -1105,9 +1176,14 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       log.gamma.hat.previous[p] <- weights.output$log.gamma.hat 
     }
     
-    # only need to calculate weights for single merge particle
+    # only calculate weights for 1 merge particle & check enough splits for A.S.
     if(t == 2)
     {
+      # need at least 2 split particles for ancestor sampling
+      split.particle.indices <- which(particles[,2] == 4)
+      num.split.particles <- length(split.particle.indices)
+      
+      # only need to calculate weights for single merge particle
       merge.particle.indices <- which(particles[,2] == 2)
         
       if(length(merge.particle.indices) > 1)
@@ -1116,6 +1192,22 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
         skip.particle.indices <- merge.particle.indices[-1]
       }
     }
+    
+    # select from ancestor sampling weights
+    if(as.flag == TRUE)
+    {
+      # remove redundant zeros
+      redundant.as.weight.indices <- which(as.weights == 0)
+      non.redundant.as.weight.indices <- which(1:N %!in% redundant.as.weight.indices)
+      as.weights <- as.weights[-redundant.as.weight.indices]
+      
+      # normalise weights and select an ancestral path
+      log.norm.as.weights <- sapply(as.weights, function(x){x - logSumExp(as.weights)})
+      select.path <- 
+        which(as.double(rmultinom(n = 1, size = 1, prob = exp(log.norm.as.weights))) == 1)
+      particles[1,] <- as.particles[non.redundant.as.weight.indices[select.path], ]
+    }
+    as.flag <- FALSE # reset as.flag at each iteration
   }
   
   # set weights for remaining merge particles  
@@ -1145,15 +1237,16 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 #' @param beta1 beta function parameter 1 [scalar]
 #' @param beta2 beta function parameter 2 [scalar]
 #' @param directed is network directed or not [boolean]
+#' @param as.probability probability of ancester sampling step at each iteration [scalar]
 #' @return Updated clustering
 SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha, 
-                       beta1, beta2, directed)
+                       beta1, beta2, directed, as.probability)
 {
   #s <- SelectAnchors(all.clusters)  # select anchors uniformly
 
   # calculate c.bar and s.bar
   closure <- CalculateClosureOfAnchors(s, all.clusters)
-  c.bar <- closure$c.bar
+  c.bar <- closure$c.bar  
   s.bar <- closure$s.bar
   
   # calculate non.c.bar
@@ -1172,7 +1265,8 @@ SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha,
   
   # update clustering
   updated.c.bar <- ParticleGibbsSplitMerge(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
-                                           resampling.threshold, alpha, beta1, beta2, directed)
+                                           resampling.threshold, alpha, beta1, beta2, directed,
+                                           as.probability)
   unchanged.clusters <- all.clusters[all.clusters %!in% c.bar]
   
   # update according to whether a split or merge was performed

@@ -32,8 +32,8 @@ sigma <- SamplePermutation(s, s.bar)
 n <- length(sigma)
 
 # define particle matrix & fix 1st particle of each generation to conditional path
-particles <- matrix(rep(0, N*n), c(N, n))
-particles[1,] <- MapClustersToAllocations(sigma, c.bar) 
+particles <- as.particles <- matrix(rep(0, N*n), c(N, n))
+particles[1,] <- conditional.path <- MapClustersToAllocations(sigma, c.bar) 
 particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
 skip.particle.indices <- NULL # only need to calculate weights for single merge particle
 
@@ -41,6 +41,7 @@ skip.particle.indices <- NULL # only need to calculate weights for single merge 
 log.un.weights <- rep(log(1), N)
 log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
 log.gamma.hat.previous <- rep(0, N)
+as.weights <- rep(0, N)
 
 # set up global variables: for previous edge counts and log gamma at t=2
 global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
@@ -58,12 +59,29 @@ for(t in 2:n) # time iterations
     log.un.weights <- rep(log(1), N) # reset the weights
   }
   
+  # indicator for ancestor sampling
+  as.indicator <- runif(1) 
+  
+  # skip weights calculation for any additional merge particles 
   particle.indices <- which(1:N %!in% skip.particle.indices == TRUE)
+  
   for(p in particle.indices) # particle iterations
   {
+    # ancestor sampling
+    if(as.indicator <= as.probability)
+    {
+      as.output <- AncestorSampling(sigma, s, particle = particles[p, 1:t], 
+                                    log.previous.unnormalised.weight = log.un.weights[p], 
+                                    log.gamma.hat.previous = log.gamma.hat.previous[p], 
+                                    all.clusters, non.c.bar, adj, tau1, tau2, t, n, alpha, 
+                                    beta1, beta2, directed, particle.index = p, conditional.path)
+      as.weights[p] <- as.output$log.a.s.weight
+      as.particles[p] <- as.output$concatenated.particle
+    }
+    
     # calculate proposal and weights
     weights.output <- LogUnnormalisedWeight(sigma, s, particle = particles[p, 1:t], 
-                                            log.previous.weight = log.un.weights[p], 
+                                            log.previous.unnormalised.weight = log.un.weights[p], 
                                             all.clusters, non.c.bar, adj, tau1, tau2, 
                                             t, n, alpha, beta1, beta2, directed,
                                             particle.index = p, log.gamma.hat.previous[p])
@@ -89,6 +107,16 @@ for(t in 2:n) # time iterations
       first.merge.particle.index <- merge.particle.indices[1] 
       skip.particle.indices <- merge.particle.indices[-1]
     }
+  }
+  
+  # select from ancestor sampling weights
+  if(as.indicator <= as.probability)
+  {
+    # normalise weights and select an ancestral path
+    log.norm.as.weights <- sapply(as.weights, function(x){x - logSumExp(as.weights)})
+    ancestral.path.index <- as.double(rmultinom(n = 1, size = 1, 
+                                                prob = exp(log.norm.as.weights)))
+    particles[1,] <- as.particles[ancestral.path.index,]
   }
 }
 
