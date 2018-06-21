@@ -41,12 +41,13 @@ skip.particle.indices <- NULL # only need to calculate weights for single merge 
 log.un.weights <- rep(log(1), N)
 log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
 log.gamma.hat.previous <- rep(0, N)
-as.weights <- rep(0, N)
+as.flag <- FALSE; 
 
-# set up global variables: for previous edge counts and log gamma at t=2
+# set up global variables: for running totals of edge counts and log gamma at t=2
 global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
 global.running.total.max.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
 global.log.gamma_2 <<- rep(0, N)
+
 
 # Run SMC
 for(t in 2:n) # time iterations
@@ -59,24 +60,31 @@ for(t in 2:n) # time iterations
     log.un.weights <- rep(log(1), N) # reset the weights
   }
   
-  # indicator for ancestor sampling
-  as.indicator <- runif(1) 
-  
   # skip weights calculation for any additional merge particles 
   particle.indices <- which(1:N %!in% skip.particle.indices == TRUE)
   
+  # conditions required for ancestor sampling 
+  if(t > 3 && runif(1) <= as.probability && conditional.path[2] != 2 && 
+     num.split.particles > 1)
+  {
+    as.flag <- TRUE
+    as.weights <- rep(0, N)
+    as.particles <- array(rep(0, N * n), c(N, n))
+  }
+  
   for(p in particle.indices) # particle iterations
   {
-    # ancestor sampling
-    if(as.indicator <= as.probability)
+    # ancestor sampling only if conditional path is split particle
+    if(as.flag == TRUE && p %in% split.particle.indices)
     {
       as.output <- AncestorSampling(sigma, s, particle = particles[p, 1:t], 
                                     log.previous.unnormalised.weight = log.un.weights[p], 
                                     log.gamma.hat.previous = log.gamma.hat.previous[p], 
                                     all.clusters, non.c.bar, adj, tau1, tau2, t, n, alpha, 
-                                    beta1, beta2, directed, particle.index = p, conditional.path)
+                                    beta1, beta2, directed, particle.index = p, 
+                                    conditional.path)
       as.weights[p] <- as.output$log.a.s.weight
-      as.particles[p] <- as.output$concatenated.particle
+      as.particles[p, ] <- as.output$concatenated.particle
     }
     
     # calculate proposal and weights
@@ -97,9 +105,14 @@ for(t in 2:n) # time iterations
     log.gamma.hat.previous[p] <- weights.output$log.gamma.hat 
   }
   
-  # only need to calculate weights for single merge particle
+  # only calculate weights for 1 merge particle & check enough splits for A.S.
   if(t == 2)
   {
+    # need at least 2 split particles for ancestor sampling
+    split.particle.indices <- which(particles[,2] == 4)
+    num.split.particles <- length(split.particle.indices)
+    
+    # only need to calculate weights for single merge particle
     merge.particle.indices <- which(particles[,2] == 2)
     
     if(length(merge.particle.indices) > 1)
@@ -110,15 +123,26 @@ for(t in 2:n) # time iterations
   }
   
   # select from ancestor sampling weights
-  if(as.indicator <= as.probability)
+  if(as.flag == TRUE)
   {
+    # remove redundant zeros
+    redundant.as.weight.indices <- which(as.weights == 0)
+    non.redundant.as.weight.indices <- which(1:N %!in% redundant.as.weight.indices)
+    
+    if(length(redundant.as.weight.indices) > 0)
+    {
+      as.weights <- as.weights[-redundant.as.weight.indices]  
+    }
+    
     # normalise weights and select an ancestral path
     log.norm.as.weights <- sapply(as.weights, function(x){x - logSumExp(as.weights)})
-    ancestral.path.index <- as.double(rmultinom(n = 1, size = 1, 
-                                                prob = exp(log.norm.as.weights)))
-    particles[1,] <- as.particles[ancestral.path.index,]
+    select.path <- 
+      which(as.double(rmultinom(n = 1, size = 1, prob = exp(log.norm.as.weights))) == 1)
+    particles[1,] <- as.particles[non.redundant.as.weight.indices[select.path], ]
   }
+  as.flag <- FALSE # reset as.flag at each iteration
 }
+
 
 #####
 # debug

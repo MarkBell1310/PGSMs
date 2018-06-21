@@ -6,6 +6,15 @@
 #****************************************************
 
 #****************************************************
+#'  Run time calculator in hours
+RunTimeCalculatorHours <- function(num.iters, iter.time)
+{
+  (num.iters * iter.time) / (60 * 60)
+}
+#RunTimeCalculatorHours(num.iters = 100000, iter.time = 0.25)
+
+
+#****************************************************
 #'  "Not in" function
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
@@ -939,7 +948,7 @@ CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters,
 #CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes, directed = FALSE)
 
 #****************************************************
-#'  Create global matrix of edge counts between every node and every cluster
+#'  Create global matrix of edge counts between clusters
 #' @param all.clusters all current clusters [list of vectors]
 #' @param nun.nodes number of nodes [scalar]
 #' @return edge counts [matrix: dim = no. clusters x no. clusters]
@@ -1199,7 +1208,11 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       # remove redundant zeros
       redundant.as.weight.indices <- which(as.weights == 0)
       non.redundant.as.weight.indices <- which(1:N %!in% redundant.as.weight.indices)
-      as.weights <- as.weights[-redundant.as.weight.indices]
+      
+      if(length(redundant.as.weight.indices) > 0)
+      {
+        as.weights <- as.weights[-redundant.as.weight.indices]  
+      }
       
       # normalise weights and select an ancestral path
       log.norm.as.weights <- sapply(as.weights, function(x){x - logSumExp(as.weights)})
