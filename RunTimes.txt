@@ -1,0 +1,13 @@
+Run time reports: (all times in seconds) [After commit: "changes to dashboard for ISBA experiments"]
+
+20 nodes, 5 clusters, 20 particles, 1000 iterations:
+
+No A.S.:     237.67 
+A.S. = 0.2:  251.88
+A.S. = 0.4:  269.24
+A.S. = 0.6:  270.80
+
+5 particles:
+10 particles:
+30 particles: 296.36
+50 particles: 410.15

@@ -1,8 +1,6 @@
 
 #****************************************************
-#
-#******* Particle Gibbs for SBMs - functions ********
-#
+#************ PGSMs for SBMs - functions ************
 #****************************************************
 
 #****************************************************
@@ -915,7 +913,7 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.unnormalised.
 #****************************************************
 #'  Create global matrix of edge counts between every node and every cluster
 #' @param all.clusters all current clusters [list of vectors]
-#' @param nun.nodes number of nodes [scalar]
+#' @param num.nodes number of nodes [scalar]
 #' @param directed whether network is directed or not [boolean]
 #' @return edge counts [matrix: dim = no. nodes x no. clusters]
 CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters, num.nodes, 
