@@ -6,6 +6,8 @@
 # Functions in this script set up and calculate the inital vectors and matrices 
 # that will be required (and updated) by both the PGSMs and the Gibbs sampler
 #
+# Note: All are used only once at start of algorithm and so are not optimised for speed.
+#
 #**************************************************** 
 
 #****************************************************

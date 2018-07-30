@@ -4,44 +4,6 @@
 #****************************************************
 
 #****************************************************
-#'  Run time calculator in hours
-RunTimeCalculatorHours <- function(num.iters, iter.time)
-{
-  (num.iters * iter.time) / (60 * 60)
-}
-#RunTimeCalculatorHours(num.iters = 100000, iter.time = 0.25)
-
-
-#****************************************************
-#'  "Not in" function
-'%!in%' <- function(x,y)!('%in%'(x,y))
-
-#****************************************************
-#'  Annealing schedule ("zeta") for improved target distributions at time t
-#'  
-#' @param t current time [scalar]
-#' @param n maximum time [scalar]
-#' @return annealing schedule [vector]
-zeta_t <- function(t, n)
-{
-  (t - 2) / (n - 2)
-}
-
-
-#****************************************************
-#'  Dirichlet process prior functions
-tau1 <- function(alpha, j)
-{
-  alpha^j
-}
-
-tau2 <- function(j)
-{
-  factorial(j-1)
-}
-
-
-#****************************************************
 #'  Effective sample size (ESS)
 #'  @param log.norm.weights log of the normalised weights [vector]
 #'  @param N number of particles [scalar]
@@ -54,7 +16,6 @@ ESS <- function(log.norm.weights, N)
 
 #****************************************************
 #'  Select anchors
-#'  
 #' @param all.clusters The set of all clusters ("c") [list]
 #' @return Two anchor points
 SelectAnchors <- function(all.clusters)
@@ -65,18 +26,16 @@ SelectAnchors <- function(all.clusters)
 
 #****************************************************
 #' Find Closure of the anchors
-#'  
 #' @param all.clusters The set of all clusters ("c") [list]
 #' @param s Anchor points [vector]
 #' @return c.bar [list] and s.bar [vector]  
 CalculateClosureOfAnchors <- function(s, all.clusters)
 {
   # find only the clusters that contain the anchors
-  c.bar.index <- sapply(1:2, 
-                        function(z)
-                        {
-                          as.double(which(sapply(all.clusters, function(x){s[z] %in% x}) == TRUE))
-                        })
+  c.bar.index <- sapply(1:2, function(z)
+  {
+    as.double(which(sapply(all.clusters, function(x){s[z] %in% x}) == TRUE))
+  })
   
   c.bar <- list(all.clusters[[c.bar.index[1]]],
                 all.clusters[[c.bar.index[2]]])
@@ -98,7 +57,6 @@ CalculateClosureOfAnchors <- function(s, all.clusters)
 
 #****************************************************
 #'  Perform uniform permutation on closure of anchors
-#'  
 #' @param s Anchors  [vector]
 #' @param s.bar Closure of anchors [vector]
 #' @return Uniform permutation [vector]  
@@ -122,7 +80,6 @@ SamplePermutation <- function(s, s.bar)
 
 #****************************************************
 #'  Mapping from allocation decisions to clustering
-#'  
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param s anchor points  [vector]
@@ -172,7 +129,6 @@ MapAllocationsToClusters <- function(sigma, particle, s)
 
 #****************************************************
 #'  Mapping from clustering to allocation decisions
-#'  
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param c.bar The 1 or 2 clusters that contain the anchors [list]
 #' @return "particle": corresponding allocation decison sequence [vector]
@@ -599,6 +555,129 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
               "max.count.running.total" = all.counts$max.count.running.total))
 }   
 #LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, adj, tau1, tau2, t, alpha, beta1, beta2, directed, particle.index)
+
+
+#****************************************************
+#'  Log of intermediate target distribution at time t (Log "Gamma")
+#'
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param s Anchor points [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param all.clusters set of all clusters ("c") [list]
+#' @param non.c.bar clusters not containing anchors [list]
+#' @param adj adjacency matrix of SBM [matrix]
+#' @param tau1 factorisation of prior [function]
+#' @param tau2 factorisation of prior [function]
+#' @param t current time
+#' @param alpha tau1 parameter
+#' @param beta1 beta function parameter
+#' @param beta2 beta function parameter
+#' @param directed is network directed or not [boolean]
+#' @param particle.index index of particle [scalar]
+#' @return log of intermeduate target distribution
+LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, adj, 
+                                        tau1, tau2, t, alpha, beta1, beta2, directed, 
+                                        particle.index)
+{
+  # calculate "c.bar.current": c.bar at time t
+  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
+  if(is.null(c.bar.current[[2]]))
+  {
+    c.bar.current <- list(c.bar.current[[1]])
+  }
+  
+  # count relevant edges within and between clusters
+  all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                    t, directed, particle.index)
+  edge.counts <- all.counts$likelihood.edge.count.total
+  max.counts <- all.counts$likelihood.max.count.total
+  n <- length(edge.counts)
+  
+  # product of all between-cluster log likelihoods 
+  log.likelihoods <- rep(0, n)
+  
+  
+  log_marg_llhd <- (d/2)*log(2*pi)-0.5*logdet(-result$hessian)+
+    as.double(result$mle.lik)+
+    as.double(dnorm(result$coef[1],0,5,log=TRUE)+
+                dnorm(result$coef[2],0,5,log=TRUE))
+  
+  
+  
+  # TO DO: For PGSM: make the code below into a function
+  # TO DO: For Gibbs: need a loop for the K+1 times that we call the function below 
+  # -(here we call twice - once for each cluster the node can be moved to)
+  
+  # TO DO: allow user flexibility on dnorm priors below (priors on parameters within clusters)
+  # TO DO: allow flexibility on tau1 and tau2 for log prior below (prior for the log.int.target)
+  # d = length(coef): no. parameters of LDERGM (e.g. for edges, triangles. k-stars etc)
+  
+  ## counts within c.bar1 and c.bar2 require different treatment to other counts
+  ## for LDERGM, only the diagonals of KxK matrix have different betas - but for PGSMs,
+  ## we only need the first 2 diagonals - within c.bar1 and within c.bar2
+  ## for Gibbs we need all the diagonals
+  if(length(c.bar.current[[1]] == 1))
+  {
+    # only have prior: log.likelihood = 0
+    log.likelihoods[1] <- 0
+  }
+  else
+  {
+    # form a network from each cluster of c.bar
+    network.cluster1 <- network(adj[c.bar.current[[1]], c.bar.current[[1]]], directed = directed)
+    
+    # find maximum pseudolikelihood estimator 
+    # for model.formula: do we want edges, triangles, kstars etc? 
+    ml.data1 <- ergm(network.cluster1 ~ model.formula, estimate="MPLE")
+    
+    # which coefficients are finite
+    which_coefs = which(!is.infinite(ml.data1$coef))
+    
+    using_coefs = ml.data1$coef[which_coefs]
+    d1 = length(using_coefs)
+    log.likelihoods[1] <- (d1/2) * log(2*pi) - 0.5 * logdet(-ml.data1$hessian[which_coefs,which_coefs]) + 
+      as.double(sum(sapply(which_coefs,function(i){dnorm(i,0,5,log=TRUE)})))
+  }
+  
+  if(length(c.bar.current[[2]] == 1))
+  {
+    # only have prior: log.likelihood = 0
+    log.likelihoods[1] <- 0
+  }
+  else
+  {
+    # To DO: change aS above 
+    network.cluster2 <- network(adj[c.bar.current[[2]]], c.bar.current[[2]]], directed = directed) 
+    ml.data2 <- ergm(network.cluster2 ~ model.formula, estimate="MPLE")
+    d2 = length(ml.data2$coef)
+    log.likelihoods[2] <- (d2/2) * log(2*pi) - 0.5 * logdet(-ml.data2$hessian) + 
+      as.double(sum(sapply(mldata2$coef,function(i){dnorm(i,0,5,log=TRUE)})))
+  }
+  
+  # 
+  for (i in 3:n)
+  {
+    log.likelihoods[i] <-  log(beta(beta1 + edge.counts[i], 
+                                    max.counts[i] - edge.counts[i] + beta2)) - 
+      log(beta(beta1, beta2))
+  }
+  
+  sum.log.likelihoods <- sum(log.likelihoods)
+  
+  # prior (3rd line is 0 if we split)
+  log.prior <- log(tau1(alpha, length(c.bar.current) + length(all.clusters) - length(c.bar.current))) +
+    log(tau2(length(c.bar.current[[1]]))) + 
+    ifelse(particle[t] != 2, log(tau2(length(c.bar.current[[2]]))), 0) 
+  
+  # intermediate target
+  log.int.target <- log.prior + sum.log.likelihoods
+  
+  return(list("log.int.target" = log.int.target,
+              "edge.count.running.total" = all.counts$edge.count.running.total,
+              "max.count.running.total" = all.counts$max.count.running.total))
+}   
+#LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, adj, tau1, tau2, t, alpha, beta1, beta2, directed, particle.index)
+
 
 #****************************************************
 #' Log of Improved intermediate target distribution (Log "Gamma hat")
@@ -1297,8 +1376,46 @@ SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha,
 
 
 #****************************************************
+#'  Run time calculator in hours
+RunTimeCalculatorHours <- function(num.iters, iter.time)
+{
+  (num.iters * iter.time) / (60 * 60)
+}
+#RunTimeCalculatorHours(num.iters = 100000, iter.time = 0.25)
+
+
+#****************************************************
+#'  "Not in" function
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+#****************************************************
+#'  Annealing schedule ("zeta") for improved target distributions at time t
+#'  
+#' @param t current time [scalar]
+#' @param n maximum time [scalar]
+#' @return annealing schedule [vector]
+zeta_t <- function(t, n)
+{
+  (t - 2) / (n - 2)
+}
+
+
+#****************************************************
+#'  Dirichlet process prior functions
+tau1 <- function(alpha, j)
+{
+  alpha^j
+}
+
+tau2 <- function(j)
+{
+  factorial(j-1)
+}
+
+
+#****************************************************
 #
-#************ CODE FROM RICHARD ********************* 
+#************ ADDITIONAL CODE FROM RICHARD **********
 #
 #****************************************************
 
@@ -1329,10 +1446,6 @@ StratifiedResample <-function(log_weights, n) # remember: n-1 since one path fix
   }
   indices
 }
-
-
-
-
 
 logsumexp <- function(x){
   xmax = which.max(x)
