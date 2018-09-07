@@ -4,17 +4,26 @@
 #****************************************************
 
 #****************************************************
+#' Extend KxK matrix for K+1th cluster - add extra row and column
+#' @param prev.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param K number of clusters [scalar]
+#' @return Extended (K+1)x(K+1) matrix [matrix]
+ExtendKxKMatrix <- function(prev.matrix, K)
+{
+  cbind(rbind(prev.matrix, rep(0,K)), rep(0, K+1))
+}
+
+#****************************************************
 #' Update KxK (cluster:cluster) edge counts matrix for undirected network
 #' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
 #' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
 #' @param node.index index of node being moved [scalar]
 #' @param cluster.from index of cluster that node is moved from [scalar]
 #' @param cluster.to index of cluster that node is moved to [scalar]
-#' @param cluster.index current index of cluster within for loop [scalar]
 #' @param K number of clusters [scalar]
 #' @return Updated KxK matrix [matrix]
 UpdateKxKEdgeCountsMatrixUndirected <- function(prev.KxK.mat, prev.nxK.mat, node.index,
-                                                cluster.from, cluster.to, K, cluster.index)
+                                                cluster.from, cluster.to, K)
 {
   ## Undirected: update relevant parts of (symmetric) upper triangular matrix only
   ## Note: We always have at least 2 clusters, since if K=1, then only need to use this function 
@@ -30,22 +39,8 @@ UpdateKxKEdgeCountsMatrixUndirected <- function(prev.KxK.mat, prev.nxK.mat, node
     prev.KxK.mat[cluster.to, cluster.to] + prev.nxK.mat[node.index, cluster.to]
   
   # "type 2" counts - between Cf and Ct (cluster.from and cluster.to)
-  if(cluster.index <= K) # cluster.index is an existing cluster
-  {
-    new.KxK.mat[cluster.from, cluster.to] <- prev.KxK.mat[cluster.from, cluster.to] + 
+  new.KxK.mat[cluster.from, cluster.to] <- prev.KxK.mat[cluster.from, cluster.to] + 
       prev.nxK.mat[node.index, cluster.from] - prev.nxK.mat[node.index, cluster.to]
-    
-  }
-  if(cluster.index == K+1) # cluster.index is a new cluster
-  {
-    # Calculate new K+1th column
-    new.column <- prev.nxK.mat[node.index, cluster.to]
-    new.KxK.mat[cluster.from, cluster.to] <- prev.KxK.mat[cluster.from, cluster.to] + 
-      prev.nxK.mat[node.index, cluster.from] - prev.nxK.mat[node.index, cluster.to]
-    
-    # Attach column to matrix and add row of zeros 
-    
-  }
   
   # "type 3" counts - between (Cf, others) and (Ct, others)
   if(K > 2)
@@ -110,28 +105,6 @@ UpdateKxKEdgeCountsMatrixDirected <- function(prev.KxK.mat, prev.nxK.mat.to, pre
   }
   return(new.KxK.mat)
 }
-
-#****************************************************
-#' Update K+1th row/column & attach to KxK edge counts matrix for undirected network
-#' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
-#' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
-#' @param node.index index of node being moved [scalar]
-#' @param cluster.from index of cluster that node is moved from [scalar]
-#' @param cluster.to index of cluster that node is moved to [scalar]
-#' @param K number of clusters [scalar]
-#' @return Updated KxK matrix [matrix]
-# ExtendedKxKEdgeCountsUndirected <- function(new.index, prev.KxK.mat, prev.nxK.mat, node.index,
-#                                                     cluster.from, cluster.to, K)
-# {
-#   # K+1th cluster is now cluster.to
-# }
-# 
-# ExtendedKxKEdgeCountsDirected
-# ExtendedKxKMaxCountsUndirected
-# ExtendedKxKMaxCountsDirected
-# ExtendedNxKEdgeCountsUndirected
-# ExtendedNxKEdgeCountsDirected
-
 
 #****************************************************
 #' Calculate KxK matrix of maximum edge counts for undirected network 
@@ -268,9 +241,10 @@ UpdateNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, cl
 #' @param cluster.from index of cluster that node is moved from [scalar]
 #' @param cluster.to index of cluster that node is moved to [scalar]
 #' @param num.nodes number of nodes in network [scalar]
+#' @param adj adjacency matrix [matrix]
 #' @return Updated nxK matrix [matrix]
-UpdateNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from,
-                                      node.index, cluster.from, cluster.to, num.nodes)
+UpdateNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index, 
+                                      cluster.from, cluster.to, num.nodes, adj)
 {
   ## Directed: 2 nxK matrices
   new.nxK.mat.to <- prev.nxK.mat.to
@@ -294,6 +268,357 @@ UpdateNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from,
               "new.nxK.mat.from" = new.nxK.mat.from))
 }
 
+
+#****************************************************
+#' Update matrices for clusters 1,...,K
+#' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat (undirected) nxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat.to (directed) previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' @param prev.nxK.mat.from (directed) nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' @param prev.max.counts.mat KxK matrix of max counts from previous Gibbs iteration [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param cluster.to index of cluster that node is moved to [scalar]
+#' @param K number of clusters [scalar]
+#' @param all.clusters current clustering [list of vectors]
+#' @param num.nodes number of nodes in network [scalar]
+#' @param adj adjacency matrix [matrix]
+#' @param directed whether network is directed or not [boolean]
+#' @return Updated matrices for kth cluster [list of matrices]
+UpdateMatrices <- function(prev.KxK.mat, prev.nxK.mat, prev.nxK.mat.to, prev.nxK.mat.from, 
+                           prev.max.counts.mat, node.index, cluster.from, cluster.to, K, 
+                           all.clusters, num.nodes, adj, directed)
+{
+  # Undirected: update KxK edge counts, KxK max counts and single nxK matrix
+  if(directed == FALSE)
+  {
+    KxK.edge.counts <- 
+      UpdateKxKEdgeCountsMatrixUndirected(
+        prev.KxK.mat = previous.matrices$KxK.edge.counts, 
+        prev.nxK.mat = previous.matrices$nxK.edge.counts, 
+        node.index = node, cluster.from, cluster.to, K)
+    
+    KxK.max.counts <- 
+      UpdateKxKMaxCountsMatrixUndirected(
+        prev.max.counts.mat = previous.matrices$KxK.max.counts, 
+        cluster.from, cluster.to, K, all.clusters)
+    
+    nxK.edge.counts <- 
+      UpdateNxKMatrixUndirected(
+        prev.nxK.mat = previous.matrices$nxK.edge.counts, node.index = node, 
+        cluster.from, cluster.to, num.nodes, adj)
+  }
+  
+  # Directed: update KxK edge counts, KxK max counts and both nxK matrices
+  if(directed == TRUE)
+  {
+    return(list("KxK.edge.counts" <- UpdateKxKEdgeCountsMatrixDirected(
+        prev.KxK.mat = previous.matrices$KxK.edge.counts, 
+        prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to, 
+        prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from,
+        node.index = node, cluster.from, cluster.to, K)
+    
+    KxK.max.counts <- 
+      UpdateKxKMaxCountsMatrixDirected(
+        prev.max.counts.mat = previous.matrices$KxK.max.counts, 
+        cluster.from, cluster.to, K, all.clusters)
+    
+    nxK.edge.counts <- 
+      UpdateNxKMatricesDirected(
+        prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to, 
+        prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from,
+        node.index = node, cluster.from, cluster.to, num.nodes)
+  }
+}
+
+#****************************************************
+#' Update K+1th row/column & attach to KxK edge counts matrix for undirected network
+#' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param K number of clusters [scalar]
+#' @return Updated extended (K+1)x(K+1) edge counts matrix [matrix]
+UpdateExtendedKxKEdgeCountsUndirected <- function(prev.KxK.mat, prev.nxK.mat, node.index,
+                                                  cluster.from, K)
+{
+  # Extend matrix by adding K+1th row and column
+  new.KxK.mat <- ExtendKxKMatrix(prev.KxK.matrix, K)
+  cluster.to <- K+1
+  
+  ## Update "cluster from" (Cf) and "K+1th" (Ct) rows & columns ##
+  
+  # "type 1" counts - within clusters Cf And Ct (matrix diagonals)
+  new.KxK.mat[cluster.from, cluster.from] <- 
+    prev.KxK.mat[cluster.from, cluster.from] - prev.nxK.mat[node.index, cluster.from]
+  new.KxK.mat[cluster.to, cluster.to] <- 0
+  
+  # "type 2" counts - between Cf and Ct (cluster.from and cluster.to)
+  new.KxK.mat[cluster.from, cluster.to] <- prev.nxK.mat[node.index, cluster.from]
+  
+  # "type 3" counts - between (Cf, others) and (Ct, others)
+  if(K > 1)
+  {
+    for(k in (1:K)[-cluster.from])
+    {
+      new.KxK.mat[cluster.from, k] <- prev.KxK.mat[cluster.from, k] - prev.nxK.mat[node.index, k]
+      new.KxK.mat[cluster.to, k] <- prev.nxK.mat[node.index, k]
+    }
+  }
+  
+  # only need upper triangular part of matrix
+  new.KxK.mat[lower.tri(new.KxK.mat)] <- rep(0, K*(K+1)/2)
+  
+  return(new.KxK.mat)
+}
+
+#****************************************************
+#' Update K+1th row/column & attach to KxK edge counts matrix for directed network
+#' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param K number of clusters [scalar]
+#' @return Updated extended (K+1)x(K+1) edge counts matrix [matrix]
+UpdateExtendedKxKEdgeCountsDirected <- function(prev.KxK.mat, prev.nxK.mat.to, prev.nxK.mat.from,
+                                                node.index, cluster.from, K)
+{
+  # Extend matrix by adding K+1th row and column
+  new.KxK.mat <- ExtendKxKMatrix(prev.KxK.matrix, K)
+  cluster.to <- K+1
+  
+  ## Update "cluster from" (Cf) and "K+1th" (Ct) rows & columns ##
+  
+  # "type 1" counts - within clusters Cf And Ct (matrix diagonals)
+  new.KxK.mat[cluster.from, cluster.from] <- prev.KxK.mat[cluster.from, cluster.from] - 
+    prev.nxK.mat.to[node.index, cluster.from] - prev.nxK.mat.from[node.index, cluster.from]
+  new.KxK.mat[cluster.to, cluster.to] <- 0
+  
+  # "type 2" counts - between Cf and Ct (cluster.from and cluster.to)
+  new.KxK.mat[cluster.from, cluster.to] <- prev.nxK.mat.from[node.index, cluster.from]
+  new.KxK.mat[cluster.to, cluster.from] <- prev.nxK.mat.to[node.index, cluster.from]
+  
+  # "type 3" counts - between (Cf, others) and (Ct, others)
+  if(K > 1)
+  {
+    for(k in (1:K)[-cluster.from])
+    {
+      new.KxK.mat[cluster.from, k] <- prev.KxK.mat[cluster.from, k] - prev.nxK.mat.to[node.index, k]
+      new.KxK.mat[k, cluster.from] <- prev.KxK.mat[k, cluster.from] - prev.nxK.mat.from[node.index, k]
+      
+      new.KxK.mat[cluster.to, k] <- prev.nxK.mat.to[node.index, k]
+      new.KxK.mat[k, cluster.to] <- prev.nxK.mat.from[node.index, k]
+    }
+  }
+  
+  # only need upper triangular part of matrix
+  new.KxK.mat[lower.tri(new.KxK.mat)] <- rep(0, K*(K+1)/2)
+  
+  return(new.KxK.mat)
+}
+
+#****************************************************
+#' Update K+1th row/column & attach to KxK max counts matrix for undirected network
+#' @param prev.max.counts.mat KxK matrix of max counts from previous Gibbs iteration [matrix]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param K number of clusters [scalar]
+#' @param all.clusters current clustering [list of vectors]
+#' @return Updated extended (K+1)x(K+1) max counts matrix [matrix]
+UpdateExtendedKxKMaxCountsUndirected <- function(prev.max.counts.mat, cluster.from, K,
+                                                 all.clusters)
+{
+  # Extend matrix by adding K+1th row and column
+  new.max.counts.mat <- ExtendKxKMatrix(prev.max.counts.mat, K)
+  cluster.to <- K+1
+  
+  # Calculate num nodes in cluster.from, cluster.to WITHOUT the node that is moved
+  # -note that all.clusters is the current clustering, so node has not moved yet 
+  #   and so needs to be removed from cluster.from to calculate num nodes
+  num.nodes.in.clusters <- sapply(all.clusters, length)
+  num.nodes.cluster.from <- num.nodes.in.clusters[cluster.from] - 1
+  num.nodes.cluster.to <- 0
+  
+  # "type 1" counts - within cluster (matrix diagonals)
+  new.max.counts.mat[cluster.from, cluster.from] <- 
+    prev.max.counts.mat[cluster.from, cluster.from] - num.nodes.cluster.from
+  new.max.counts.mat[cluster.to, cluster.to] <- 0
+  
+  # "type 2" counts - between Cf and Ct (cluster.from and cluster.to)
+  new.max.counts.mat[cluster.from, cluster.to] <- num.nodes.cluster.from
+  
+  # "type 3" counts - between (Cf, others) and (Ct, others)
+  if(K > 1)
+  {
+    for(k in (1:K)[-cluster.from])
+    {
+      new.max.counts.mat[cluster.from, k] <- prev.max.counts.mat[cluster.from, k] - 
+        num.nodes.in.clusters[k]
+      new.max.counts.mat[cluster.to, k] <- num.nodes.in.clusters[k]
+    }
+  }
+  
+  # only need upper triangular part of matrix
+  new.max.counts.mat[lower.tri(new.max.counts.mat)] <- rep(0, K*(K+1)/2)
+  
+  return(new.max.counts.mat)
+}
+
+#****************************************************
+#' Update K+1th row/column & attach to KxK max counts matrix for directed network
+#' @param prev.max.counts.mat KxK matrix of max counts from previous Gibbs iteration [matrix]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param K number of clusters [scalar]
+#' @param all.clusters current clustering [list of vectors]
+#' @return Updated extended (K+1)x(K+1) max counts matrix [matrix]
+UpdateExtendedKxKMaxCountsDirected <- function(prev.max.counts.mat, cluster.from, K,
+                                               all.clusters)
+{
+  # Extend matrix by adding K+1th row and column
+  new.max.counts.mat <- ExtendKxKMatrix(prev.max.counts.mat, K)
+  cluster.to <- K+1
+  
+  # Calculate num nodes in cluster.from, cluster.to WITHOUT the node that is moved
+  # -note that all.clusters is the current clustering, so node has not moved yet 
+  #   and so needs to be removed from cluster.from to calculate num nodes
+  num.nodes.in.clusters <- sapply(all.clusters, length)
+  num.nodes.cluster.from <- num.nodes.in.clusters[cluster.from] - 1
+  num.nodes.cluster.to <- 0
+  
+  # "type 1" counts - within cluster (matrix diagonals)
+  new.max.counts.mat[cluster.from, cluster.from] <- 
+    prev.max.counts.mat[cluster.from, cluster.from] - 2 * num.nodes.cluster.from
+  new.max.counts.mat[cluster.to, cluster.to] <- 0
+  
+  # "type 2" counts - between Cf and Ct (cluster.from and cluster.to)
+  new.max.counts.mat[cluster.from, cluster.to] <- num.nodes.cluster.from
+  new.max.counts.mat[cluster.to, cluster.from] <- num.nodes.cluster.from
+  
+  # "type 3" counts - between (Cf, others) and (Ct, others)
+  if(K > 1)
+  {
+    for(k in (1:K)[-cluster.from])
+    {
+      new.max.counts.mat[cluster.from, k] <- prev.max.counts.mat[cluster.from, k] - 
+        num.nodes.in.clusters[k]
+      new.max.counts.mat[k, cluster.from] <- prev.max.counts.mat[k, cluster.from] - 
+        num.nodes.in.clusters[k]
+      
+      new.max.counts.mat[cluster.to, k] <- num.nodes.in.clusters[k]
+      new.max.counts.mat[k, cluster.to] <- num.nodes.in.clusters[k]
+    }
+  }
+  
+  # only need upper triangular part of matrix
+  new.max.counts.mat[lower.tri(new.max.counts.mat)] <- rep(0, K*(K+1)/2)
+  
+  return(new.max.counts.mat)
+}
+
+#****************************************************
+#' Update extended nxK (node:cluster) matrix for undirected network
+#' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param num.nodes number of nodes in network [scalar]
+#' @param adj adjacency matrix [matrix]
+#' @return Updated extended nx(K+1) matrix [matrix]
+UpdateExtendedNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, 
+                                              num.nodes, adj)
+{
+  ## Undirected: only 1 nxK matrix - Extend matrix by adding K+1th column
+  new.nxK.mat <- cbind(prev.nxK.mat, rep(0, num.nodes))
+  cluster.to <- K+1
+  
+  for(node in 1:num.nodes)
+  {
+    # (1) update "from" column - for cluster that node has left
+    new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
+    
+    # (2) update "to" column - for cluster that node has joined
+    new.nxK.mat[node, cluster.to] <- adj[node, node.index]
+  }
+  return(new.nxK.mat)
+}
+
+#****************************************************
+#' Update extended nxK (node:cluster) matrix for directed network
+#' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param num.nodes number of nodes in network [scalar]
+#' @param adj adjacency matrix [matrix]
+#' @return Updated extended nx(K+1) matrix [matrix]
+UpdateExtendedNxKMatrixDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index, 
+                                            cluster.from, num.nodes, adj)
+{
+  ## Directed: need 2 nxK matrices - Extend matrices by adding K+1th columns
+  new.nxK.mat.to <- cbind(prev.nxK.mat.to, rep(0, num.nodes))
+  new.nxK.mat.from <- cbind(prev.nxK.mat.from, rep(0, num.nodes))
+  cluster.to <- K+1
+  
+  for(node in 1:num.nodes)
+  {
+    # (1) update "from" column of both matrices - for cluster that node has left
+    new.nxK.mat.to[node, cluster.from] <- 
+      prev.nxK.mat.to[node, cluster.from] - adj[node, node.index]
+    new.nxK.mat.from[node, cluster.from] <- 
+      prev.nxK.mat.from[node, cluster.from] - adj[node.index, node]
+    
+    # (2) update "to" column of both matrices - for cluster that node has joined
+    new.nxK.mat.to[node, cluster.to] <- adj[node, node.index]
+    new.nxK.mat.from[node, cluster.to] <- adj[node.index, node]
+  }
+  return(list("new.nxK.mat.to" = new.nxK.mat.to,
+              "new.nxK.mat.from" = new.nxK.mat.from))
+}
+
+
+#****************************************************
+#' Update extended matrices for K+1th cluster
+#' @param prev.KxK.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat (undirected) nxK matrix from previous Gibbs iteration [matrix]
+#' @param prev.nxK.mat.to (directed) previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' @param prev.nxK.mat.from (directed) nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' @param prev.max.counts.mat KxK matrix of max counts from previous Gibbs iteration [matrix]
+#' @param node.index index of node being moved [scalar]
+#' @param cluster.from index of cluster that node is moved from [scalar]
+#' @param K number of clusters [scalar]
+#' @param all.clusters current clustering [list of vectors]
+#' @param num.nodes number of nodes in network [scalar]
+#' @param adj adjacency matrix [matrix]
+#' @param directed whether network is directed or not [boolean]
+#' @return Updated extended matrices for K+1th cluster [list of matrices]
+UpdateExtendedMatrices <- function(prev.KxK.mat, prev.nxK.mat, prev.nxK.mat.to, 
+                                   prev.nxK.mat.from, prev.max.counts.mat, node.index, 
+                                   cluster.from, K, all.clusters, num.nodes, adj, directed)
+{
+  if(directed == FALSE)
+  {
+    return(list(
+      "ext.KxK.edge.counts" = UpdateExtendedKxKEdgeCountsUndirected(prev.KxK.mat, prev.nxK.mat, 
+                                                                    node.index,cluster.from, K),
+      "ext.KxK.max.counts" = UpdateExtendedKxKMaxCountsUndirected(prev.max.counts.mat, 
+                                                                  cluster.from, 
+                                                                  K, all.clusters),
+      "ext.nxK.edge.counts" = UpdateExtendedNxKMatrixUndirected(prev.nxK.mat, node.index, 
+                                                                cluster.from, num.nodes, adj)))
+  }
+  
+  if(directed == TRUE)
+  {
+    return(list(
+      "ext.KxK.edge.counts" = UpdateExtendedKxKEdgeCountsDirected(prev.KxK.mat, prev.nxK.mat.to, 
+                                                                  prev.nxK.mat.from, node.index, 
+                                                                  cluster.from, K),
+      "ext.KxK.max.counts" = UpdateExtendedKxKMaxCountsDirected(prev.max.counts.mat, cluster.from, 
+                                                                K, all.clusters),
+      "ext.nxK.edge.counts" = UpdateExtendedNxKMatrixDirected(prev.nxK.mat.to, prev.nxK.mat.from, 
+                                                              node.index,  cluster.from, num.nodes, 
+                                                              adj)))
+  }
+}
 
 #****************************************************
 #' Update number of nodes in each cluster
@@ -365,7 +690,6 @@ LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.node
 #' Full Gibbs sweep
 #' @param total.previous.edge.counts Total edge counts from previous iteration [vector]
 #' @param node.index Index of node [scalar] 
-#' @param cluster.index Index of cluster [scalar] 
 #' @param all.clusters Current clustering [list of vectors]
 #' @param global.counts.between.nodes.clusters Edge counts between all nodes & clusters [matrix]
 #' @return Adjusted edge counts [vector]
@@ -412,6 +736,17 @@ GibbsSweep <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.ma
       
       ##*****************************************************
       ## Update matrices
+      
+      if(k < K+1)
+      {
+        
+      }
+      
+      if(k == K+1)
+      {
+        
+      }
+        
       
       ## Update matrices (Directed): update KxK edge counts, KxK max counts and both nxK matrices
       if(directed == TRUE)
@@ -488,6 +823,7 @@ GibbsSweep <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.ma
     # - these represent the updated edge counts for the iteration involving the next node
     previous.matrices <- temp.storage.list[[which(multinomial.sample == 1)]]
     
+    # TO DO: Will this need adjustments if node moves to (K+1)th cluster?
     # Update clustering: move node to new cluster if required
     if(previous.matrices$cluster.to != cluster.from)
     {
