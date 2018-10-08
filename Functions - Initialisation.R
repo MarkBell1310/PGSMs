@@ -90,8 +90,12 @@ InitialKxKEdgeCountMatrix <- function(all.clusters, adj, directed)
     }
   }
   
+  # if undirected halve the diagonals and remove lower triangle
   if(directed == FALSE)
   {
+    # currently double-counting the diagonals (within-cluster counts) so need to halve 
+    diag(edge.counts.matrix) <- diag(edge.counts.matrix) / 2
+    
     # only need upper triangular part of matrix
     edge.counts.matrix[lower.tri(edge.counts.matrix)] <- rep(0, K*(K+1)/2)
   }
@@ -170,22 +174,30 @@ InitialKxKMaxCountMatrix <- function(all.clusters, num.nodes.in.clusters, direct
 #InitialKxKMaxCountMatrix(all.clusters, num.nodes.in.clusters, directed)
 
 #****************************************************
-#' Initial KxK (cluster:cluster) maximum count matrix for undirected AND directed network
+#' Initial set up list of edge counts, num nodes in clusters & log int target
 #' @param all.clusters all current clusters [list of vectors]
 #' @param num.nodes number of nodes [scalar]
 #' @param adj adjacency matrix [matrix]
+#' @param alpha parameter for Dirichlet [scalar]
+#' @param beta1 likelihood tuning parameter [scalar]
+#' @param beta2 likelihood tuning parameter [scalar]
+#' @param K number of clusters [scalar]
 #' @param directed whether network is directed or not [boolean]
-#' @return maximum counts [matrix: dim = K x K]
-InitialSetupList <- function(all.clusters, num.nodes, adj, directed)
+#' @return initial set up list [list of matrices, vectors and a scalar]
+InitialSetupList <- function(all.clusters, num.nodes, adj, alpha, beta1, beta2, K, directed)
 {
   num.nodes.in.clusters <- InitialNumNodesInClusters(all.clusters)
   KxK.max.counts <- InitialKxKMaxCountMatrix(all.clusters, num.nodes.in.clusters, directed)
   KxK.edge.counts <- InitialKxKEdgeCountMatrix(all.clusters, adj, directed)
   nxK.edge.counts <- InitialNxKMatrices(all.clusters, num.nodes, adj, directed)
+  log.int.target <- LogIntermediateTargetGibbs(KxK.edge.counts, KxK.max.counts, 
+                                               num.nodes.in.clusters, alpha, beta1, beta2, 
+                                               K, num.nodes, directed)
   
   return(list("num.nodes.in.clusters" = num.nodes.in.clusters,
               "KxK.max.counts" = KxK.max.counts,
               "KxK.edge.counts" = KxK.edge.counts,
-              "nxK.edge.counts" = nxK.edge.counts))
+              "nxK.edge.counts" = nxK.edge.counts,
+              "log.int.target" = log.int.target))
 }
 #InitialSetupList(all.clusters, num.nodes, adj, directed)

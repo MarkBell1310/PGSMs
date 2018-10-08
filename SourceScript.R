@@ -7,8 +7,8 @@ library(Matrix)
 library(igraph)
 library(matrixStats)
 library(LaplacesDemon)
-source("InitialisationFunctions.R")
-source("PGSMsFunctions.R")
-source("GibbsFunctions.R")
+source("Functions - Initialisation.R")
+source("Functions - PGSMs.R")
+source("Functions - Gibbs.R")
 
 #****************************************************

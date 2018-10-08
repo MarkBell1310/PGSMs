@@ -21,6 +21,8 @@ sbm <- sample_sbm(n = 20,
                   block.sizes = c(10, 10), directed = FALSE, loops = FALSE); plot(sbm)
 sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
                   block.sizes = rep(4, 5), directed = FALSE, loops = FALSE); plot(sbm)
+sbm <- sample_sbm(n = 20, pref.matrix = diag(4),
+                  block.sizes = rep(5, 4), directed = FALSE, loops = FALSE); plot(sbm)
 sbm <- sample_sbm(n = 20, pref.matrix = 0.99 * diag(1),
                   block.sizes = 20, directed = FALSE, loops = FALSE); plot(sbm)
 
@@ -30,3 +32,7 @@ start.clusters <- list(c(18, 14, 3, 5), c(12, 16, 20), c(1, 4, 19), c(7, 9, 13, 
                        c(2, 6, 8, 10, 11, 17))
 start.clusters <- list(1:10, 11:num.nodes)
 start.clusters <- list(1:num.nodes)
+
+
+sbm <- sample_sbm(n = 50, pref.matrix = diag(5),
+                  block.sizes = rep(10, 5), directed = FALSE, loops = FALSE); plot(sbm)
