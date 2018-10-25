@@ -27,13 +27,23 @@ InitialNxKMatrices <- function(all.clusters, num.nodes, adj, directed)
     edge.counts.matrix <- Matrix(rep(0, num.nodes*K), c(num.nodes, K), sparse = TRUE)
     
     # loop through all nodes and all clusters
-    for(node in 1:num.nodes)
+    
+    # for(node in 1:num.nodes)
+    # {
+    #   for(cluster in 1:K)
+    #   {
+    #     edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
+    #   }
+    # }
+    
+    for(cluster in 1:K)
     {
-      for(cluster in 1:K)
+      edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
       {
-        edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
-      }
+        sum(adj[x, all.clusters[[cluster]]])
+      })
     }
+    
     return(edge.counts.matrix)
   }
   
@@ -81,13 +91,21 @@ InitialKxKEdgeCountMatrix <- function(all.clusters, adj, directed)
   }
   
   # calculate edge counts by looping through all clusters
-  for(cluster.row in 1:K)
+  
+  # for(cluster.row in 1:K)
+  # {
+  #   for(cluster.column in 1:K)
+  #   {
+  #     edge.counts.matrix[cluster.row, cluster.column] <- 
+  #       sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
+  #   }
+  # }
+  for(cluster.column in 1:K)
   {
-    for(cluster.column in 1:K)
+    edge.counts.matrix[, cluster.column] <- sapply(1:K, function(x)
     {
-      edge.counts.matrix[cluster.row, cluster.column] <- 
-        sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
-    }
+      sum(adj[all.clusters[[x]], all.clusters[[cluster.column]]]) 
+    })
   }
   
   # if undirected halve the diagonals and remove lower triangle

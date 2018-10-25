@@ -320,14 +320,27 @@ UpdateNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, cl
   ## Undirected: only 1 nxK matrix
   new.nxK.mat <- prev.nxK.mat
   
-  for(node in 1:num.nodes)
+  # for(node in 1:num.nodes)
+  # {
+  #   # (1) update "from" column - for cluster that node has left
+  #   new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
+  #   
+  #   # (2) update "to" column - for cluster that node has joined
+  #   new.nxK.mat[node, cluster.to] <- prev.nxK.mat[node, cluster.to] + adj[node, node.index]
+  # }
+  
+  # (1) update "from" column - for cluster that node has left
+  new.nxK.mat[, cluster.from] <- sapply(1:num.nodes, function(x)
   {
-    # (1) update "from" column - for cluster that node has left
-    new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
-    
-    # (2) update "to" column - for cluster that node has joined
-    new.nxK.mat[node, cluster.to] <- prev.nxK.mat[node, cluster.to] + adj[node, node.index]
-  }
+    prev.nxK.mat[x, cluster.from] - adj[x, node.index]
+  })
+  
+  # (2) update "to" column - for cluster that node has joined
+  new.nxK.mat[, cluster.to] <- sapply(1:num.nodes, function(x)
+  {
+    prev.nxK.mat[x, cluster.to] + adj[x, node.index]
+  })
+  
   return(new.nxK.mat)
 }
 
@@ -662,14 +675,27 @@ UpdateExtendedNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.
   new.nxK.mat <- cbind(prev.nxK.mat, rep(0, num.nodes))
   cluster.to <- K+1
   
-  for(node in 1:num.nodes)
+  # for(node in 1:num.nodes)
+  # {
+  #   # (1) update "from" column - for cluster that node has left
+  #   new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
+  #   
+  #   # (2) update "to" column - for cluster that node has joined
+  #   new.nxK.mat[node, cluster.to] <- adj[node, node.index]
+  # }
+  
+  # (1) update "from" column - for cluster that node has left
+  new.nxK.mat[, cluster.from] <- sapply(1:num.nodes, function(x)
   {
-    # (1) update "from" column - for cluster that node has left
-    new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
-    
-    # (2) update "to" column - for cluster that node has joined
-    new.nxK.mat[node, cluster.to] <- adj[node, node.index]
-  }
+    prev.nxK.mat[x, cluster.from] - adj[x, node.index]
+  })
+  
+  # (2) update "to" column - for cluster that node has joined
+  new.nxK.mat[, cluster.to] <- sapply(1:num.nodes, function(x)
+  {
+    adj[x, node.index]
+  })
+
   return(new.nxK.mat)
 }
 
@@ -799,25 +825,89 @@ UpdateNumNodesInClustersExtended <- function(prev.num.nodes.in.clusters, cluster
 #' @param num.nodes number of nodes [scalar]
 #' @param directed whether network is directed or not [boolean]
 #' @return log intermediate target [scalar]
+# LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.nodes.in.clusters, 
+#                                        alpha, beta1, beta2, K, num.nodes, directed)
+# {
+#   # sum over K clusters of log(gamma(num.nodes.in.cluster + alpha))
+#   sum.over.clusters <- sum(sapply(num.nodes.in.clusters, function(x)
+#   {
+#     lgamma(x + alpha)
+#   }))
+#   
+#   # define edge and max counts
+#   if(directed == TRUE)
+#   {
+#     # Directed: both upper and lower triangular
+#     edge.counts <- as.vector(KxK.edge.counts)
+#     max.counts <- as.vector(KxK.max.counts)
+#   }
+#   else
+#   {
+#     # Undirected: upper triangular only
+#     edge.counts <- KxK.edge.counts[upper.tri(KxK.edge.counts, diag = TRUE)]
+#     max.counts <- KxK.max.counts[upper.tri(KxK.max.counts, diag = TRUE)]
+#   }
+#   
+#   # sum over blocks of log-likelihoods: log(f(x_(kl)|z))
+#   sum.log.likelihoods <- sum(sapply(Map(function(x, y)
+#   {
+#     lbeta(beta1 + x, y - x + beta2) - lbeta(beta1, beta2)
+#   }, 
+#   edge.counts, max.counts), function(x){x}))
+# 
+#   # log intermediate target (Uses the prior in (6) of Mcdaid et al. (2013))
+#    - lfactorial(K) + lgamma(alpha * K) + sum.over.clusters - K * lgamma(alpha) - 
+#     lgamma(num.nodes + (alpha * K)) + sum.log.likelihoods
+# }
+
+#****************************************************
+#' Log intermediate target for Gibbs sampler
+#' @param KxK.edge.counts KxK edge counts matrix [matrix]
+#' @param KxK.max.counts KxK maximum counts matrix [matrix]
+#' @param num.nodes.in.clusters number of nodes in each cluster [vector]
+#' @param alpha parameter for Dirichlet [scalar]
+#' @param beta1 likelihood tuning parameter [scalar]
+#' @param beta2 likelihood tuning parameter [scalar]
+#' @param K number of clusters [scalar]
+#' @param num.nodes number of nodes [scalar]
+#' @param directed whether network is directed or not [boolean]
+#' @return log intermediate target [scalar]
 LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.nodes.in.clusters, 
                                        alpha, beta1, beta2, K, num.nodes, directed)
 {
-  # sum over K clusters of log(gamma(num.nodes.in.cluster + alpha))
-  sum.over.clusters <- sum(sapply(num.nodes.in.clusters, function(x)
+  # Prior of Mcdaid et al. (2013) eq (6))
+  # -Poisson prior for no. components & finite Dirichlet mixture model on clustering
+  if(prior == "mcdaid")
   {
-    lgamma(x + alpha)
-  }))
+    tau1 <- - lfactorial(K) + lgamma(alpha * K) - K * lgamma(alpha) - lgamma(num.nodes + (alpha * K)) 
+    tau2 <- sum(sapply(num.nodes.in.clusters, function(x)
+    {
+      lgamma(x + alpha)
+    }))
+    log.prior <- tau1 + tau2
+  }
   
-  # define edge and max counts
+  # Dirichlet process prior
+  if(prior == "dirichlet.process")
+  {
+    tau1 <- K * log(alpha)
+    tau2 <- sum(sapply(num.nodes.in.clusters, function (x)
+    {
+      lfactorial(x - 1)   
+    }))
+    log.prior <- tau1 + tau2
+  }
+
+  # define edge and max counts for log likelihood calculation
   if(directed == TRUE)
   {
-    ## Directed: both upper and lower triangular
+    # Directed: both upper and lower triangular
     edge.counts <- as.vector(KxK.edge.counts)
     max.counts <- as.vector(KxK.max.counts)
   }
   else
   {
-    ## Undirected: upper triangular only
+    # Undirected: upper triangular only
     edge.counts <- KxK.edge.counts[upper.tri(KxK.edge.counts, diag = TRUE)]
     max.counts <- KxK.max.counts[upper.tri(KxK.max.counts, diag = TRUE)]
   }
@@ -828,16 +918,13 @@ LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.node
     lbeta(beta1 + x, y - x + beta2) - lbeta(beta1, beta2)
   }, 
   edge.counts, max.counts), function(x){x}))
-
-  # log intermediate target (Uses the prior in (6) of Mcdaid et al. (2013))
-   - lfactorial(K) + lgamma(alpha * K) + sum.over.clusters - K * lgamma(alpha) - 
-    lgamma(num.nodes + (alpha * K)) + sum.log.likelihoods
-  #- log(factorial(K)) + log(gamma(alpha * K)) + sum.over.clusters - K * log(gamma(alpha)) - 
-  #  log(gamma(num.nodes + (alpha * K))) + sum.log.likelihoods
+  
+  # log intermediate target 
+  log.prior + sum.log.likelihoods
 }
 
 #****************************************************
-#' Full Gibbs sweep
+#' Full Gibbs sweep (designed to work solo - i.e. without PGSMs)
 #' @param all.clusters Current clustering [list of vectors]
 #' @param alpha parameter for Dirichlet [scalar]
 #' @param beta1 likelihood tuning parameter [scalar]
@@ -845,12 +932,10 @@ LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.node
 #' @param num.nodes number of nodes [scalar]
 #' @param previous.matrices edge count and max count matrices from previous iteration 
 #' - (either from Gibbs or PGSMs)
-#' @param iter iteration number [scalar]
 #' @param directed whether network is directed or not [boolean]
-#'# @param global.counts.between.nodes.clusters Edge counts between all nodes & clusters [matrix]
 #' @return Updated clustering and previous matrices [list]
-GibbsSweep <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.matrices,
-                       iter, directed)
+GibbsSweepSolo <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.matrices,
+                           directed)
 {
   # Perform deterministic scan but with a random order
   random.nodes.order <- sample(1:num.nodes)
@@ -905,17 +990,20 @@ GibbsSweep <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.ma
         if(num.nodes.in.clusters[cluster.from] == 0)
         {
           temp.num.clusters <- K-1
+          temp.num.nodes.in.clusters <- num.nodes.in.clusters[-cluster.from]
         
         } else 
         {
           temp.num.clusters <- K
+          temp.num.nodes.in.clusters <- num.nodes.in.clusters
         }
         
         log.int.target <-
           LogIntermediateTargetGibbs(KxK.edge.counts = updated.matrices$KxK.edge.counts,
                                      KxK.max.counts = updated.matrices$KxK.max.counts,
-                                     num.nodes.in.clusters, alpha, beta1, beta2,
-                                     K = temp.num.clusters, num.nodes, directed)
+                                     num.nodes.in.clusters = temp.num.nodes.in.clusters, 
+                                     alpha, beta1, beta2, K = temp.num.clusters, 
+                                     num.nodes, directed)
         
         # Store updated nxK, KxK matrices and number of nodes in each cluster temporarily
         temp.storage.list[[k]] <- list("num.nodes.in.clusters" = num.nodes.in.clusters,
@@ -1000,4 +1088,169 @@ GibbsSweep <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.ma
               "all.clusters" = all.clusters))
 }
 
+
+#****************************************************
+#' Full Gibbs sweep (designed to work with PGSMs)
+#' @param all.clusters Current clustering [list of vectors]
+#' @param alpha parameter for Dirichlet [scalar]
+#' @param beta1 likelihood tuning parameter [scalar]
+#' @param beta2 likelihood tuning parameter [scalar]
+#' @param num.nodes number of nodes [scalar]
+#' @param adj adjacency matrix of network [matrix]
+#' @param directed whether network is directed or not [boolean]
+#' @return Updated clustering and previous matrices [list]
+GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, adj, directed)
+{
+  # setup initialisation vectors/matrices
+  previous.matrices <- suppressMessages(InitialSetupList(all.clusters, num.nodes, adj, 
+                                                         alpha, beta1, beta2, 
+                                                         K = length(all.clusters), directed))
+
+  # Perform deterministic scan but with a random order
+  random.nodes.order <- sample(1:num.nodes)
+  
+  ## (Do a Gibbs iteration and try node in each of the K+1 clusters) ##
+  for(node in random.nodes.order)
+  {
+    K <- length(all.clusters)
+    cluster.from <- which(lapply(all.clusters, function(x){which(node %in% x)}) == 1)
+    
+    # if cluster.from only contains 1 node, only need to investigate K clusters
+    if(length(all.clusters[[cluster.from]]) == 1)
+    {
+      temp.storage.list <- lapply(1:K, list)
+      
+    } else 
+    {
+      temp.storage.list <- lapply(1:(K+1), list)
+    }
+    
+    ## (Try node in the kth cluster) ##
+    for(k in 1:(K+1))      
+    {
+      cluster.to <- k
+      
+      # if node already in proposed cluster, use previous matrices and log gamma
+      if(cluster.to == cluster.from)
+      {
+        temp.storage.list[[k]] <- list("num.nodes.in.clusters" = previous.matrices$num.nodes.in.clusters,
+                                       "KxK.max.counts" = previous.matrices$KxK.max.counts,
+                                       "KxK.edge.counts" = previous.matrices$KxK.edge.counts,
+                                       "nxK.edge.counts" = previous.matrices$nxK.edge.counts,
+                                       "log.int.target" = previous.matrices$log.int.target,
+                                       "cluster.to" = cluster.from)
+        next
+      }
+      
+      ##*****************************************************
+      ## Update matrices and log intermediate target - then store results temporarily
+      
+      # if node moves to existing cluster
+      if(k < K+1)
+      {
+        updated.matrices <- UpdateMatrices(previous.matrices, node.index = node, cluster.from, 
+                                           cluster.to, K, all.clusters, num.nodes, adj, directed)
+        num.nodes.in.clusters <- 
+          UpdateNumNodesInClusters(prev.num.nodes.in.clusters = previous.matrices$num.nodes.in.clusters, 
+                                   cluster.from, cluster.to)
+        
+        # check if K decreases after node moves - need appropriate K for log.int.target
+        if(num.nodes.in.clusters[cluster.from] == 0)
+        {
+          temp.num.clusters <- K-1
+          temp.num.nodes.in.clusters <- num.nodes.in.clusters[-cluster.from]
+          
+        } else 
+        {
+          temp.num.clusters <- K
+          temp.num.nodes.in.clusters <- num.nodes.in.clusters
+        }
+        
+        log.int.target <-
+          LogIntermediateTargetGibbs(KxK.edge.counts = updated.matrices$KxK.edge.counts,
+                                     KxK.max.counts = updated.matrices$KxK.max.counts,
+                                     num.nodes.in.clusters = temp.num.nodes.in.clusters, 
+                                     alpha, beta1, beta2, K = temp.num.clusters, 
+                                     num.nodes, directed)
+        
+        # Store updated nxK, KxK matrices and number of nodes in each cluster temporarily
+        temp.storage.list[[k]] <- list("num.nodes.in.clusters" = num.nodes.in.clusters,
+                                       "KxK.max.counts" = updated.matrices$KxK.max.counts,
+                                       "KxK.edge.counts" = updated.matrices$KxK.edge.counts,
+                                       "nxK.edge.counts" = updated.matrices$nxK.edge.counts,
+                                       "log.int.target" = log.int.target,
+                                       "cluster.to" = cluster.to)
+      }
+      
+      # if node moves to new cluster - dimension of matrices increases
+      if(k == K+1 && length(all.clusters[[cluster.from]]) > 1)
+      {
+        updated.matrices <- UpdateExtendedMatrices(previous.matrices, node.index = node, 
+                                                   cluster.from, K, all.clusters, 
+                                                   num.nodes, adj, directed)
+        num.nodes.in.clusters <- 
+          UpdateNumNodesInClustersExtended(prev.num.nodes.in.clusters = previous.matrices$num.nodes.in.clusters, 
+                                           cluster.from, cluster.to)
+        log.int.target <- 
+          LogIntermediateTargetGibbs(KxK.edge.counts = updated.matrices$KxK.edge.counts, 
+                                     KxK.max.counts = updated.matrices$KxK.max.counts, 
+                                     num.nodes.in.clusters, alpha, beta1, beta2, 
+                                     K = K+1, num.nodes, directed)
+        
+        # Store updated nxK, KxK matrices and number of nodes in each cluster temporarily
+        temp.storage.list[[k]] <- list("num.nodes.in.clusters" = num.nodes.in.clusters,
+                                       "KxK.max.counts" = updated.matrices$KxK.max.counts,
+                                       "KxK.edge.counts" = updated.matrices$KxK.edge.counts,
+                                       "nxK.edge.counts" = updated.matrices$nxK.edge.counts,
+                                       "log.int.target" = log.int.target,
+                                       "cluster.to" = cluster.to)
+      }
+    }
+    
+    ##*****************************************************
+    ## Determine node location & store relevant matrices for next Gibbs iteration 
+    
+    # Normalise the log intermediate targets ("log gammas") 
+    log.gammas <- sapply(temp.storage.list, function(x){x$log.int.target})
+    log.norm.gammas <- sapply(log.gammas, function(x){x - logSumExp(log.gammas)})
+    
+    # Sample from these to determine which cluster the node should be moved to
+    multinomial.sample <- as.double(rmultinom(n = 1, size = 1, prob = exp(log.norm.gammas)))
+    
+    # Store the edge count matrices that represent where the node was moved to 
+    # - these represent the updated edge counts for the iteration involving the next node
+    previous.matrices <- temp.storage.list[[which(multinomial.sample == 1)]]
+    cluster.move.to <- previous.matrices$cluster.to
+    
+    ##*****************************************************
+    ## Update clustering
+    
+    if(previous.matrices$cluster.to != cluster.from)
+    {
+      # Remove moving node from old cluster 
+      all.clusters[[cluster.from]] <- 
+        all.clusters[[cluster.from]][-which(all.clusters[[cluster.from]] == node)]
+      
+      # Move node to new cluster 
+      if(cluster.move.to < K+1)
+      {
+        all.clusters[[cluster.move.to]] <- c(all.clusters[[cluster.move.to]], node)
+      }
+      if(cluster.move.to == K+1)
+      {
+        all.clusters[[cluster.move.to]] <- node
+      }
+      
+      # Remove cluster.from if contains no nodes & remove relevant rows/cols of previous.matrices
+      if(length(all.clusters[[cluster.from]]) == 0)
+      {
+        all.clusters[[cluster.from]] <- NULL
+        previous.matrices <- RemoveClusterRowsColumns(previous.matrices, cluster.from, 
+                                                      num.nodes, directed)
+      }
+    }
+  }
+  
+  return(all.clusters)
+}
 

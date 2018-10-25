@@ -539,16 +539,19 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
                                     max.counts[i] - edge.counts[i] + beta2)) - 
                             log(beta(beta1, beta2))
   }
-  
-  sum.log.likelihoods <- sum(log.likelihoods)
-  
-  # prior (3rd line is 0 if we split)
-  log.prior <- log(tau1(alpha, length(c.bar.current) + length(all.clusters) - length(c.bar.current))) +
-               log(tau2(length(c.bar.current[[1]]))) + 
-               ifelse(particle[t] != 2, log(tau2(length(c.bar.current[[2]]))), 0) 
 
+  # prior for log.int.target
+  if(prior == "dirichlet.process")
+  {
+    log.prior <- LogDirichletProcessPrior(all.clusters, c.bar.current, alpha)
+  } 
+  if(prior == "mcdaid")
+  {
+    log.prior <- LogMcDaidPrior(c.bar.current, num.nodes, alpha)
+  }
+  
   # intermediate target
-  log.int.target <- log.prior + sum.log.likelihoods
+  log.int.target <- log.prior + sum(log.likelihoods)
   
   return(list("log.int.target" = log.int.target,
               "edge.count.running.total" = all.counts$edge.count.running.total,
@@ -558,8 +561,7 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
 
 
 #****************************************************
-#'  Log of intermediate target distribution at time t (Log "Gamma")
-#'
+#'  Log of intermediate target distribution at time t (Log "Gamma") for LDERGM
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param s Anchor points [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
@@ -574,110 +576,188 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
 #' @param beta2 beta function parameter
 #' @param directed is network directed or not [boolean]
 #' @param particle.index index of particle [scalar]
-#' @return log of intermeduate target distribution
-# LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, adj, 
-#                                         tau1, tau2, t, alpha, beta1, beta2, directed, 
-#                                         particle.index)
-# {
-#   # calculate "c.bar.current": c.bar at time t
-#   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-#   if(is.null(c.bar.current[[2]]))
-#   {
-#     c.bar.current <- list(c.bar.current[[1]])
-#   }
-#   
-#   # count relevant edges within and between clusters
-#   all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
-#                                     t, directed, particle.index)
-#   edge.counts <- all.counts$likelihood.edge.count.total
-#   max.counts <- all.counts$likelihood.max.count.total
-#   n <- length(edge.counts)
-#   
-#   # product of all between-cluster log likelihoods 
-#   log.likelihoods <- rep(0, n)
-#   
-#   
-#   log_marg_llhd <- (d/2)*log(2*pi)-0.5*logdet(-result$hessian)+
-#     as.double(result$mle.lik)+
-#     as.double(dnorm(result$coef[1],0,5,log=TRUE)+
-#                 dnorm(result$coef[2],0,5,log=TRUE))
-#   
-#   
-#   
-#   # TO DO: For PGSM: make the code below into a function
-#   # TO DO: For Gibbs: need a loop for the K+1 times that we call the function below 
-#   # -(here we call twice - once for each cluster the node can be moved to)
-#   
-#   # TO DO: allow user flexibility on dnorm priors below (priors on parameters within clusters)
-#   # TO DO: allow flexibility on tau1 and tau2 for log prior below (prior for the log.int.target)
-#   # d = length(coef): no. parameters of LDERGM (e.g. for edges, triangles. k-stars etc)
-#   
-#   ## counts within c.bar1 and c.bar2 require different treatment to other counts
-#   ## for LDERGM, only the diagonals of KxK matrix have different betas - but for PGSMs,
-#   ## we only need the first 2 diagonals - within c.bar1 and within c.bar2
-#   ## for Gibbs we need all the diagonals
-#   if(length(c.bar.current[[1]] == 1))
-#   {
-#     # only have prior: log.likelihood = 0
-#     log.likelihoods[1] <- 0
-#   }
-#   else
-#   {
-#     # form a network from each cluster of c.bar
-#     network.cluster1 <- network(adj[c.bar.current[[1]], c.bar.current[[1]]], directed = directed)
-#     
-#     # find maximum pseudolikelihood estimator 
-#     # for model.formula: do we want edges, triangles, kstars etc? 
-#     ml.data1 <- ergm(network.cluster1 ~ model.formula, estimate="MPLE")
-#     
-#     # which coefficients are finite
-#     which_coefs = which(!is.infinite(ml.data1$coef))
-#     
-#     using_coefs = ml.data1$coef[which_coefs]
-#     d1 = length(using_coefs)
-#     log.likelihoods[1] <- (d1/2) * log(2*pi) - 0.5 * logdet(-ml.data1$hessian[which_coefs,which_coefs]) + 
-#       as.double(sum(sapply(which_coefs,function(i){dnorm(i,0,5,log=TRUE)})))
-#   }
-#   
-#   if(length(c.bar.current[[2]] == 1))
-#   {
-#     # only have prior: log.likelihood = 0
-#     log.likelihoods[1] <- 0
-#   }
-#   else
-#   {
-#     # To DO: change aS above 
-#     network.cluster2 <- network(adj[c.bar.current[[2]]], c.bar.current[[2]]], directed = directed) 
-#     ml.data2 <- ergm(network.cluster2 ~ model.formula, estimate="MPLE")
-#     d2 = length(ml.data2$coef)
-#     log.likelihoods[2] <- (d2/2) * log(2*pi) - 0.5 * logdet(-ml.data2$hessian) + 
-#       as.double(sum(sapply(mldata2$coef,function(i){dnorm(i,0,5,log=TRUE)})))
-#   }
-#   
-#   # 
-#   for (i in 3:n)
-#   {
-#     log.likelihoods[i] <-  log(beta(beta1 + edge.counts[i], 
-#                                     max.counts[i] - edge.counts[i] + beta2)) - 
-#       log(beta(beta1, beta2))
-#   }
-#   
-#   sum.log.likelihoods <- sum(log.likelihoods)
-#   
-#   # prior (3rd line is 0 if we split)
-#   log.prior <- log(tau1(alpha, length(c.bar.current) + length(all.clusters) - length(c.bar.current))) +
-#     log(tau2(length(c.bar.current[[1]]))) + 
-#     ifelse(particle[t] != 2, log(tau2(length(c.bar.current[[2]]))), 0) 
-#   
-#   # intermediate target
-#   log.int.target <- log.prior + sum.log.likelihoods
-#   
-#   return(list("log.int.target" = log.int.target,
-#               "edge.count.running.total" = all.counts$edge.count.running.total,
-#               "max.count.running.total" = all.counts$max.count.running.total))
-# }   
+#' @return log of intermeduate target distribution [scalar]
+LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, adj,
+                                        tau1, tau2, t, alpha, beta1, beta2, directed,
+                                        particle.index)
+{
+  # # Laplace approximation to log marginal likelihood
+  # log_marg_llhd <- (d/2) * log(2*pi) - 0.5 * logdet(-result$hessian) + 
+  #                  as.double(result$mle.lik) + 
+  #                  as.double(dnorm(result$coef[1],0,5,log=TRUE) + 
+  #                              dnorm(result$coef[2],0,5,log=TRUE))
+
+  # TO DO: For Gibbs: make the code below into a function. need a loop for the K+1 times that we call the function below
+  # -(here we call twice - once for each cluster the node can be moved to)
+  ## for Gibbs we need all the diagonals
+  
+  ## Counts within c.bar1 and c.bar2 require different treatment to other counts
+  ## For LDERGM, only the diagonals of KxK matrix have different betas - but for PGSMs,
+  ## we only need the first 2 diagonals - within c.bar1 and within c.bar2
+
+  # calculate "c.bar.current": c.bar at time t
+  c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
+  if(is.null(c.bar.current[[2]]))
+  {
+    c.bar.current <- list(c.bar.current[[1]])
+  }
+  
+  # count relevant edges within and between clusters
+  all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle,
+                                    t, directed, particle.index)
+  edge.counts <- all.counts$likelihood.edge.count.total
+  max.counts <- all.counts$likelihood.max.count.total
+  n <- length(edge.counts)
+  
+  ## "Between cluster" terms of log-likelihood: (KxK off-diagonals) - are all the same for LDERGM
+  # Sum the edge.counts & max.counts and include these as single "between cluster" term
+  if(length(c.bar.current) == 1)
+  {
+    # if c.bar.current has only 1 cluster, then there may be no "between cluster" terms
+    # if additional clusters exist then we have "between cluster" terms, else no terms
+    if(length(all.clusters) > 1)
+    {
+      log.likelihoods <- rep(0, 2)
+      log.likelihoods[2] <-
+        log(beta(beta1 + sum(edge.counts[3:n]), sum(max.counts[3:n]) - sum(edge.counts[3:n]) + beta2)) -
+        log(beta(beta1, beta2))
+    }
+    else
+    {
+      log.likelihoods <- 0
+    }
+  }
+  else
+  {
+    # if c.bar.current has 2 clusters, then there's always at least one "between cluster" term
+    log.likelihoods <- rep(0, 3)
+    log.likelihoods[3] <-
+      log(beta(beta1 + sum(edge.counts[3:n]), sum(max.counts[3:n]) - sum(edge.counts[3:n]) + beta2)) -
+      log(beta(beta1, beta2))
+  
+  }
+
+  ## "Within cluster" terms of log-likelihood: (KxK off-diagonals) - only have 2 terms for PGSMs
+  # Use Laplace approximations to log marginal likelihood
+  if(length(c.bar.current[[1]]) == 1)
+  {
+    log.likelihoods[1] <- 0 # only have prior, so log.likelihood = 0
+  }
+  else
+  {
+    log.likelihoods[1] <- 
+      LaplaceApproxLogMarginalLikelihoodERGM(c.bar.current, c.bar.cluster.index = 1, 
+                                             model.formula, directed)
+  }
+  if(length(c.bar.current) == 2 && length(c.bar.current[[2]]) == 1)
+  {
+    log.likelihoods[2] <- 0 # only have prior, so log.likelihood = 0
+  }
+  if(length(c.bar.current) == 2 && length(c.bar.current[[2]]) > 1)
+  {
+    log.likelihoods[2] <- 
+      LaplaceApproxLogMarginalLikelihoodERGM(c.bar.current, c.bar.cluster.index = 2, 
+                                             model.formula, directed)
+  }
+
+  # prior for log.int.target
+  if(prior == "dirichlet.process")
+  {
+    log.prior <- LogDirichletProcessPrior(all.clusters, c.bar.current, alpha)
+  } 
+  if(prior == "mcdaid")
+  {
+    log.prior <- LogMcDaidPrior(c.bar.current, num.nodes, alpha)
+  }
+    
+  # intermediate target
+  log.int.target <- log.prior + sum(log.likelihoods)
+
+  return(list("log.int.target" = log.int.target,
+              "edge.count.running.total" = all.counts$edge.count.running.total,
+              "max.count.running.total" = all.counts$max.count.running.total))
+}
 #LogIntermediateTarget(sigma, s, particle, all.clusters, c.bar.current, non.c.bar, adj, tau1, tau2, t, alpha, beta1, beta2, directed, particle.index)
 
+
+#****************************************************
+#' Log of Dirichlet Process Prior (from Bouchard-Cote paper)
+#' @param all.clusters set of all clusters ("c") [list]
+#' @param c.bar.current c.bar evaluated at time t [list]
+#' @param alpha tau1 parameter [scalar]
+#' @return Log of Dirichlet Process Prior [scalar]
+LogDirichletProcessPrior <- function(all.clusters, c.bar.current, alpha)
+{
+  tau1 <- LogTau1DP(alpha, j = length(c.bar.current) + length(all.clusters) - length(c.bar))
+  tau2 <- sum(sapply(c.bar.current, function (x)
+  {
+    lfactorial(length(x) - 1)   
+  }))
+  tau1 + tau2
+}
+
+#****************************************************
+#' McDaid prior: Poisson prior for no. components & finite Dirichlet mixture model on clustering
+#' @param c.bar.current c.bar evaluated at time t [list]
+#' @param num.nodes number of nodes in network [scalar]
+#' @param alpha parameter for finite Dirichlet mixture model [scalar]
+#' @return Log of McDaid Prior [scalar]
+LogMcDaidPrior <- function(c.bar.current, num.nodes, alpha)
+{
+  tau1 <- LogTau1McDaid(alpha, K = length(c.bar.current) + global.num.clusters - length(c.bar), 
+                        num.nodes)
+  tau2 <- sum(sapply(c.bar.current, function(x)
+  {
+    lgamma(length(x) + alpha)   
+  }))
+  tau1 + tau2
+}
+
+#****************************************************
+#'  Calculate maximum pseudolikelihood estimate of "within-clusters" for ERGM
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param c.bar.cluster.index index of the cluster in c.bar [scalar]
+#' @param model.formula whether we want edges, triangles, kstars etc. for ERGM [formula]
+#' @param directed is network directed or not [boolean]
+#' @return maximum pseudolikelihood estimate [scalar]
+LaplaceApproxLogMarginalLikelihoodERGM <- function(c.bar.current, c.bar.cluster.index, 
+                                                   model.formula, directed)
+{
+  # form a network from each cluster of c.bar.current
+  network.cluster <- network(as.matrix(adj[c.bar.current[[c.bar.cluster.index]], 
+                                           c.bar.current[[c.bar.cluster.index]]]), 
+                             matrix.type = "adjacency", directed = directed)
+  
+  # find within-cluster maximum pseudolikelihood estimator
+  ml.data <- ergm(formula = as.formula(paste("network.cluster ~", model.formula, sep = " ")), 
+                  estimate = "MPLE")
+  
+  # determine which coefficients are finite
+  finite.coef.indices <- which(!is.infinite(ml.data$coef))
+  finite.coefs <- ml.data$coef[finite.coef.indices]
+  
+  # if no coefficicents are finite, return large negative scalar 
+  if(length(finite.coefs) == 0)
+  {
+    # return(-10^10)
+    finite.coef.indices <- 1:model.formula.terms
+    finite.coefs <- rep(-10^10, model.formula.terms)
+  }
+  
+  # TO DO: CHECK LINE 3 WITH RICHARD
+  # Laplace approximation of log marginal likelihood
+  (length(finite.coefs)/2) * log(2*pi) - 0.5 * 
+  logdet(-ml.data$hessian[finite.coef.indices, finite.coef.indices]) +
+  #as.double(sum(finite.coefs)) +
+  as.double(ml.data$mle.lik) +
+  as.double(sum(sapply(finite.coef.indices, function(i)
+    {
+      within.cluster.parameter.prior.density(i, 0, 5, log=TRUE)
+    })))
+}
+#model.formula <- "edges + kstar(2)"
+#within.cluster.parameter.prior.density <- dnorm
+#prior <- "dirichlet.process"
 
 #****************************************************
 #' Log of Improved intermediate target distribution (Log "Gamma hat")
@@ -702,9 +782,19 @@ LogImprovedIntermediateTarget <- function(sigma, s, particle, all.clusters, non.
                                           directed, particle.index)
 {
   # log intermediate target at current time t
-  log.intermediate.target <- LogIntermediateTarget(sigma, s, particle, all.clusters, 
-                                                   non.c.bar, adj, tau1, tau2, t, alpha, 
-                                                   beta1, beta2, directed, particle.index)
+  if(network.model == "sbm")
+  {
+    log.intermediate.target <- 
+      LogIntermediateTarget(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, t, 
+                            alpha, beta1, beta2, directed, particle.index)
+  }
+  if(network.model == "ldergm")
+  {
+    log.intermediate.target <- 
+      LDERGMLogIntermediateTarget(sigma, s, particle, all.clusters, non.c.bar, adj, tau1, tau2, 
+                                  t, alpha, beta1, beta2, directed, particle.index)
+  }
+
   log.gamma_t <- log.intermediate.target$log.int.target
   
   # log improved intermediate target ("gamma hat"): also uses gamma at t=2
@@ -1001,25 +1091,47 @@ CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters,
   K <- length(all.clusters)
   edge.counts.matrix <- Matrix(rep(0, num.nodes*K), c(num.nodes, K))
   
-  # loop through all nodes and all clusters
-  for(node in 1:num.nodes)
+  # # loop through all nodes and all clusters
+  # for(node in 1:num.nodes)
+  # {
+  #   for(cluster in 1:K)
+  #   {
+  #     # if network undirected
+  #     if(directed == FALSE)
+  #     {
+  #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
+  #     }
+  #     
+  #     # if network directed
+  #     if(directed == TRUE)
+  #     {
+  #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]]) + 
+  #                                             sum(adj[all.clusters[[cluster]], node])
+  #     }
+  #   }
+  # }
+  
+  if(directed == FALSE)
   {
     for(cluster in 1:K)
     {
-      # if network undirected
-      if(directed == FALSE)
+      edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
       {
-        edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
-      }
-      
-      # if network directed
-      if(directed == TRUE)
-      {
-        edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]]) + 
-                                              sum(adj[all.clusters[[cluster]], node])
-      }
+        sum(adj[x, all.clusters[[cluster]]])
+      })
     }
   }
+  if(directed == TRUE)
+  {
+    for(cluster in 1:K)
+    {
+      edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
+      {
+        sum(adj[x, all.clusters[[cluster]]]) + sum(adj[all.clusters[[cluster]], x])
+      })
+    }
+  }
+  
   return(edge.counts.matrix)
 }
 #CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes, directed = FALSE)
@@ -1249,7 +1361,8 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
                                               log.previous.unnormalised.weight = log.un.weights[p], 
                                               all.clusters, non.c.bar, adj, tau1, tau2, 
                                               t, n, alpha, beta1, beta2, directed,
-                                              particle.index = p, log.gamma.hat.previous[p])
+                                              particle.index = p, 
+                                              log.gamma.hat.previous = log.gamma.hat.previous[p])
       
       # proposal allocations: don't change conditional path
       if(p >= 2)
@@ -1329,14 +1442,14 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 #' @param directed is network directed or not [boolean]
 #' @param as.probability probability of ancester sampling step at each iteration [scalar]
 #' @return Updated clustering
-SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha, 
+SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha, 
                        beta1, beta2, directed, as.probability)
 {
-  #s <- SelectAnchors(all.clusters)  # select anchors uniformly
+  s <- SelectAnchors(all.clusters)  # select anchors uniformly
 
   # calculate c.bar and s.bar
   closure <- CalculateClosureOfAnchors(s, all.clusters)
-  c.bar <- closure$c.bar  
+  c.bar <<- closure$c.bar  
   s.bar <- closure$s.bar
   
   # calculate non.c.bar
@@ -1371,9 +1484,9 @@ SplitMerge <- function(s, all.clusters, adj, N, resampling.threshold, alpha,
     updated.clustering <- c(updated.c.bar, unchanged.clusters)
   }
   
-  return(updated.clustering)
+  return(list("updated.clustering" = updated.clustering,
+              "num.nodes.in.c.bar" = length(unlist(c.bar))))
 }
-
 
 #****************************************************
 #'  Run time calculator in hours
@@ -1401,15 +1514,27 @@ zeta_t <- function(t, n)
 
 
 #****************************************************
-#'  Dirichlet process prior functions
-tau1 <- function(alpha, j)
+#'  Dirichlet process prior functions (tau1)
+LogTau1DP <- function(alpha, j)
 {
-  alpha^j
+  j * log(alpha)
 }
 
-tau2 <- function(j)
+# tau1 <- function(alpha, j)
+# {
+#   alpha^j
+# }
+# 
+# tau2 <- function(j)
+# {
+#   factorial(j-1)
+# }
+
+#****************************************************
+#'  McDaid prior function (tau1) (Uses the prior in (6) of Mcdaid et al. (2013))
+LogTau1McDaid <- function(alpha, K, num.nodes)
 {
-  factorial(j-1)
+  - lfactorial(K) + lgamma(alpha * K) - K * lgamma(alpha) - lgamma(num.nodes + (alpha * K)) 
 }
 
 
