@@ -4,6 +4,16 @@
 #****************************************************
 
 #****************************************************
+#' Extend KxK matrix for K+1th cluster - add extra row and column
+#' @param prev.mat KxK matrix from previous Gibbs iteration [matrix]
+#' @param K number of clusters [scalar]
+#' @return Extended (K+1)x(K+1) matrix [matrix]
+ExtendKxKMatrix <- function(prev.matrix, K)
+{
+  cbind(rbind(prev.matrix, rep(0,K)), rep(0, K+1))
+}
+
+#****************************************************
 #'  Effective sample size (ESS)
 #'  @param log.norm.weights log of the normalised weights [vector]
 #'  @param N number of particles [scalar]
@@ -89,7 +99,8 @@ MapAllocationsToClusters <- function(sigma, particle, s)
   # At t=2: if step 2 is merge then we merge throughout and return output
   if(particle[2] == 2)   
   {
-    return(list(sigma, NULL))
+    #return(list(sigma, NULL))
+    return(list(sigma))
   }
   
   # At t=2: otherwise split - assign an anchor to each cluster
@@ -316,21 +327,42 @@ CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clust
     max.counts <- 2 * max.counts
                          
   }
-  
-  # Node added to cluster 1:
-  # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
-  if(length(c.bar.current) == 1 || particle[t] == 3)
+
+  # different conditions required at t=2 when split or merge decision is made
+  if(t == 2)
   {
-    return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
-                "max.counts" = c(max.counts, rep(0, m))))
+    # Merge particle
+    if(particle[t] == 2)
+    {
+      return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+                  "max.counts" = c(2 * max.counts, rep(0, m))))
+    }
+    
+    # Split particle
+    if(particle[t] == 4)
+    {
+      return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+                  "max.counts" = c(max.counts, max.counts))) 
+    }
   }
   
-  # Node added to cluster 2:
-  # ELSE if 2 clusters AND new node added to cluster 2 
-  if(particle[t] == 4)
+  if(t > 2)
   {
-    return(list("edge.counts" = c(rep(0, m), new.edge.counts),
-                "max.counts" = c(rep(0, m), max.counts)))
+    # Node added to cluster 1:
+    # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
+    if(length(c.bar.current) == 1 || particle[t] == 3)
+    {
+      return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+                  "max.counts" = c(max.counts, rep(0, m))))
+    }
+    
+    # Node added to cluster 2:
+    # ELSE if 2 clusters AND new node added to cluster 2 
+    if(particle[t] == 4)
+    {
+      return(list("edge.counts" = c(rep(0, m), new.edge.counts),
+                  "max.counts" = c(rep(0, m), max.counts)))
+    }
   }
 }
 #CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, global.non.c.bar.indices, c.bar.current, t, particle, sigma, non.c.bar, directed)
@@ -519,10 +551,10 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
 {
   # calculate "c.bar.current": c.bar at time t
   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-  if(is.null(c.bar.current[[2]]))
-  {
-    c.bar.current <- list(c.bar.current[[1]])
-  }
+  # if(is.null(c.bar.current[[2]]))
+  # {
+  #   c.bar.current <- list(c.bar.current[[1]])
+  # }
   
   # count relevant edges within and between clusters
   all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
@@ -597,10 +629,10 @@ LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.
 
   # calculate "c.bar.current": c.bar at time t
   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-  if(is.null(c.bar.current[[2]]))
-  {
-    c.bar.current <- list(c.bar.current[[1]])
-  }
+  # if(is.null(c.bar.current[[2]]))
+  # {
+  #   c.bar.current <- list(c.bar.current[[1]])
+  # }
   
   # count relevant edges within and between clusters
   all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle,
@@ -1275,6 +1307,302 @@ AncestorSampling <- function(sigma, s, particle, log.previous.unnormalised.weigh
               "concatenated.particle" = concatenated.particle))
 }
 
+#****************************************************
+# Update NxK matrix after PGSM iteration (for undirected network)
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs) [list of matrices]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @return Updated NxK matrix 
+PGSMUpdateNxKMatrixUndirected <- function(c.bar, updated.c.bar, previous.matrices, 
+                                          c.bar.cluster.indices)
+{
+  # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 1)
+  {
+    return(previous.matrices)
+  }
+  
+  prev.mat <- previous.matrices$nxK.edge.counts
+  
+  # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 2)
+  {
+    # extend matrix by adding K+1th column
+    new.mat <- cbind(prev.mat, rep(0, dim(prev.mat)[1]))
+    
+    # update kth column (c.bar column)
+    new.mat[, c.bar.cluster.indices] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])})       
+    
+    # update K+1th column
+    new.mat[, dim(new.mat)[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])})  
+                                               
+  }
+  
+  # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 1)
+  {
+    # add values of highest index column to values of lowest index column
+    new.mat <- prev.mat
+    new.mat[, c.bar.cluster.indices[1]] <- 
+      prev.mat[, c.bar.cluster.indices[1]] + prev.mat[, c.bar.cluster.indices[2]]
+    
+    # delete highest indexed column
+    new.mat <- new.mat[, -c.bar.cluster.indices[2]]
+    
+    # If now left with only 1 cluster overall, maintain sparse matrix forms rather than scalars
+    if(is.null(dim(new.mat)))
+    {
+      new.mat <- sparseMatrix(1:num.nodes, rep(1, num.nodes), x = new.mat)
+    }
+  }
+  
+  # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 2)
+  {
+    # update lowest indexed column
+    new.mat <- prev.mat
+    new.mat[, c.bar.cluster.indices[1]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])}) 
+      
+    # update highest indexed column
+    new.mat[, c.bar.cluster.indices[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])}) 
+  }
+  
+  previous.matrices$nxK.edge.counts <- new.mat
+  return(previous.matrices)
+}
+
+#****************************************************
+# Update KxK matrices after PGSM iteration (for undirected network)
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param non.c.bar clusters not in c.bar [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs) [list of matrices]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @param chosen.particle.index index of the particle chosen from PGSM iteration [scalar]
+#' @return Updated KxK edge count & max count matrices as part of previous.matrices list
+PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+                                            c.bar.cluster.indices, chosen.particle.index)
+{
+  # edge.counts.vec & max.counts.vec take the following (2 clusters in c.bar) form:
+  # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  
+  # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 1)
+  {
+    return(previous.matrices)
+  }
+  
+  # set up matrices
+  new.edge.counts <- prev.edge.counts <- previous.matrices$KxK.edge.counts
+  new.max.counts <- prev.max.counts <- previous.matrices$KxK.max.counts
+  edge.counts.vec <- global.running.total.edge.counts[[chosen.particle.index]]
+  max.counts.vec <- global.running.total.max.counts[[chosen.particle.index]]
+  m <- length(non.c.bar)
+  
+  # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 2)
+  {
+    # extend matrices by adding K+1th row and column
+    new.edge.counts <- ExtendKxKMatrix(new.edge.counts, K = dim(new.edge.counts)[1])
+    new.max.counts <- ExtendKxKMatrix(new.max.counts, K = dim(new.max.counts)[1])
+    
+    # update "within-cluster" counts (type 1)
+    K <- dim(new.edge.counts)[1] # the new "K+1"
+    new.edge.counts[c.bar.cluster.indices, c.bar.cluster.indices] <- edge.counts.vec[1]
+    new.edge.counts[K, K] <- edge.counts.vec[2]
+    
+    new.max.counts[c.bar.cluster.indices, c.bar.cluster.indices] <- max.counts.vec[1]
+    new.max.counts[K, K] <- max.counts.vec[2]
+    
+    # update "between c.bar cluster" counts (type 2)
+    new.edge.counts[c.bar.cluster.indices, K] <- edge.counts.vec[3]
+    new.max.counts[c.bar.cluster.indices, K] <- max.counts.vec[3]
+    
+    # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)  
+    {
+      indices.to.update <- global.non.c.bar.indices
+      
+      new.edge.counts[indices.to.update, c.bar.cluster.indices] <- 
+        new.edge.counts[c.bar.cluster.indices, indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.edge.counts[indices.to.update, K] <- edge.counts.vec[(4+m):length(edge.counts.vec)]
+      
+      new.max.counts[indices.to.update, c.bar.cluster.indices] <- 
+        new.max.counts[c.bar.cluster.indices, indices.to.update] <- max.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, K] <- max.counts.vec[(4+m):length(max.counts.vec)]
+    }
+    
+    # set lower triangular elements to zero
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+
+  # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 1)
+  {
+    # update "within-cluster" counts (type 1)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- edge.counts.vec[1]
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- max.counts.vec[1]
+
+    # update lowest indexed (c.bar1) row/column for "between c.bar & non.c.bar cluster" (type 3)
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)  
+    {
+      indices.to.update <- global.non.c.bar.indices
+      
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
+        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
+        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
+    }
+     
+    # delete highest indexed (c.bar2) row and column
+    new.edge.counts <- new.edge.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
+    new.max.counts <- new.max.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
+    
+    # If now left with only 1 cluster overall, maintain sparse matrix forms rather than scalars
+    if(is.null(dim(new.edge.counts)))
+    {
+      new.edge.counts <- sparseMatrix(1, 1, x = new.edge.counts)
+      new.max.counts <- sparseMatrix(1, 1, x = new.max.counts)
+    }
+    
+    # set lower triangular elements to zero
+    K <- dim(new.edge.counts)[1]
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+
+  # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 2)
+  {
+    # update "within-cluster" counts (type 1)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- edge.counts.vec[1]
+    new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[2]] <- edge.counts.vec[2]
+    
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- max.counts.vec[1]
+    new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[2]] <- max.counts.vec[2]
+    
+    # update "between c.bar cluster" counts (type 2)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
+      new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- edge.counts.vec[3]
+    
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
+      new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- max.counts.vec[3]
+    
+    # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)  
+    {
+      indices.to.update <- global.non.c.bar.indices
+      
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
+        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[2]] <- 
+        new.edge.counts[c.bar.cluster.indices[2], indices.to.update] <- 
+        edge.counts.vec[(4+m):length(edge.counts.vec)]
+      
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
+        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[2]] <- 
+        new.max.counts[c.bar.cluster.indices[2], indices.to.update] <- 
+        max.counts.vec[(4+m):length(max.counts.vec)] 
+    }
+
+    # set lower triangular elements to zero
+    K <- dim(new.edge.counts)[1]
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+  
+  previous.matrices$KxK.edge.counts <- new.edge.counts
+  previous.matrices$KxK.max.counts <- new.max.counts
+  
+  return(previous.matrices)
+}
+
+#****************************************************
+# Update previous.matrices (for undirected network)
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs) [list of matrices]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @param non.c.bar clusters not in c.bar [list of vectors]
+#' @param all.clusters current clustering [list of vectors]
+#' @param chosen.particle.index index of the particle chosen from PGSM iteration [scalar]
+#' @param updated.clustering full updated clustering - update of all.clusters [list of vectors]
+#' @return Updated previous.matrices list
+PGSMUpdatePreviousMatricesUndirected <- function(c.bar, updated.c.bar, previous.matrices, 
+                                                 c.bar.cluster.indices, non.c.bar, 
+                                                 chosen.particle.index, updated.clustering)
+{
+  previous.matrices <- 
+    PGSMUpdateNxKMatrixUndirected(c.bar, updated.c.bar, previous.matrices, c.bar.cluster.indices)
+  
+  previous.matrices <-
+    PGSMUpdateKxKMatricesUndirected(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+                                    c.bar.cluster.indices, chosen.particle.index)
+  
+  # update number of nodes in clusters using updated clustering
+  previous.matrices$num.nodes.in.clusters <- sapply(updated.clustering, function(x){length(x)})
+  
+  return(previous.matrices)
+}
+
+#****************************************************
+# Update full clustering from restricted clustering - PRESERVING CORRECT CLUSTER INDICES
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @param non.c.bar clusters not in c.bar [list of vectors]
+#' @param all.clusters current clustering [list of vectors]
+#' @return Updated full clustering list
+UpdateFullClustering <- function(c.bar, updated.c.bar, c.bar.cluster.indices, non.c.bar, 
+                                 all.clusters)
+{
+  ## For the KxK and nxK matrices to be correct, we must preserve the correct cluster indices
+  
+  # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar - all clusters remain the same
+  
+  # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 2)
+  {
+    # updated.c.bar[[1]] takes index of c.bar. updated.c.bar[[2]] takes index K+1
+    all.clusters[[c.bar.cluster.indices]] <- unlist(updated.c.bar[[1]])
+    all.clusters[[length(all.clusters) + 1]] <- unlist(updated.c.bar[[2]])
+  }
+  
+  # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 1)
+  {
+    # updated.c.bar takes index of c.bar[[1]]. c.bar[[2]] index deleted
+    all.clusters[[c.bar.cluster.indices[1]]] <- unlist(updated.c.bar)
+    
+    # remove the cluster with no nodes 
+    all.clusters[[c.bar.cluster.indices[2]]] <- NULL
+  }
+  
+  # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  if(length(c.bar) == 2 && length(updated.c.bar) == 2)
+  {
+    # updated.c.bar[[1]] takes index of c.bar[[1]]. updated.c.bar[[2]] takes index of c.bar[[2]]
+    all.clusters[[c.bar.cluster.indices[1]]] <- unlist(updated.c.bar[[1]])
+    all.clusters[[c.bar.cluster.indices[2]]] <- unlist(updated.c.bar[[2]])
+  }
+  
+  return(all.clusters)
+}
+
 
 #****************************************************
 #'  Particle Gibbs Split-Merge algorithm ("Algorithm 3")
@@ -1300,13 +1628,13 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   # uniform permutation on elements of s.bar - with anchors 1st and 2nd
   sigma <- SamplePermutation(s, s.bar)
   n <- length(sigma)
-
+  
   # define particle matrix & fix 1st particle of each generation to conditional path
   particles <- as.particles <- matrix(rep(0, N*n), c(N, n))
   particles[1,] <- conditional.path <- MapClustersToAllocations(sigma, c.bar) 
   particles[,1] <- rep(1, N) # column 1: 1st decision is (#1) initialise for all particles
   skip.particle.indices <- NULL # only need to calculate weights for single merge particle
-
+  
   # define weights and previous log gamma hats at t=1
   log.un.weights <- rep(log(1), N)
   log.norm.weights <- rep(log(1/N), N) # 1st log norm weight is log(1/N) for all particles
@@ -1382,9 +1710,10 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
       split.particle.indices <- which(particles[,2] == 4)
       num.split.particles <- length(split.particle.indices)
       
-      # only need to calculate weights for single merge particle
+      # only need to calculate weights for a single merge particle 
+      # -can skip indices for other merge particles 
       merge.particle.indices <- which(particles[,2] == 2)
-        
+      
       if(length(merge.particle.indices) > 1)
       {
         first.merge.particle.index <- merge.particle.indices[1] 
@@ -1424,11 +1753,20 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   
   # choose a particle by multinomial sampling according to the weights
   multinomial.sample <- as.double(rmultinom(n = 1, size = 1, prob = exp(log.norm.weights)))
-  updated.c.bar <- MapAllocationsToClusters(sigma, particles[which(multinomial.sample == 1), ], s)
+  chosen.particle.index <- which(multinomial.sample == 1)
   
-  return(updated.c.bar)
+  # if chosen particle is merge, set chosen.particle.index to 1st merge particle
+  # -unlike skip.particle.indices, 1st merge particle has been updated 
+  # -this updated particle c(1, 2, 2, 2, ...) is needed to update KxK matrices
+  if(chosen.particle.index %in% skip.particle.indices)
+  {
+    chosen.particle.index <- first.merge.particle.index
+  }
+  updated.c.bar <- MapAllocationsToClusters(sigma, particles[chosen.particle.index, ], s)
+  
+  return(list("updated.c.bar" = updated.c.bar,
+              "chosen.particle.index" = chosen.particle.index))
 }
-
 
 #****************************************************
 # Perform PGSMs on a selected subset of clusters
@@ -1441,52 +1779,54 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
 #' @param beta2 beta function parameter 2 [scalar]
 #' @param directed is network directed or not [boolean]
 #' @param as.probability probability of ancester sampling step at each iteration [scalar]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs)
 #' @return Updated clustering
 SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha, 
-                       beta1, beta2, directed, as.probability)
+                       beta1, beta2, directed, as.probability, previous.matrices)
 {
-  s <- SelectAnchors(all.clusters)  # select anchors uniformly
+  # select anchors uniformly
+  s <- SelectAnchors(all.clusters)  
 
   # calculate c.bar and s.bar
   closure <- CalculateClosureOfAnchors(s, all.clusters)
   c.bar <<- closure$c.bar  
   s.bar <- closure$s.bar
   
-  # calculate non.c.bar
-  non.c.bar.cluster.indicators <- lapply(lapply(all.clusters, 
-                                                function(x){s %in% x}), 
-                                         function(y){any(y == TRUE)})
-  non.c.bar <- all.clusters[which(non.c.bar.cluster.indicators == FALSE)]
+  # define c.bar and non.c.bar cluster indicators
+  cluster.indicators <- sapply(all.clusters, function(x){any(s %in% x == TRUE)}) 
+  c.bar.cluster.indices <- which(cluster.indicators == TRUE)
   
-  # calculate global variables
-  global.non.c.bar.indices <<- which(non.c.bar.cluster.indicators == FALSE)
-  global.counts.between.nodes.clusters <<- 
-    CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes = dim(adj)[1], 
-                                                           directed)
-  #global.matrix.between.clusters.counts <<- 
-  #  CreateGlobalMatrixEdgeCountsBetweenClusters(all.clusters, directed)
+  non.c.bar.cluster.indices <- which(cluster.indicators == FALSE)
+  non.c.bar <- all.clusters[non.c.bar.cluster.indices]
   
-  # update clustering
-  updated.c.bar <- ParticleGibbsSplitMerge(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
-                                           resampling.threshold, alpha, beta1, beta2, directed,
-                                           as.probability)
-  unchanged.clusters <- all.clusters[all.clusters %!in% c.bar]
+  # global variables
+  global.non.c.bar.indices <<- non.c.bar.cluster.indices
+  global.counts.between.nodes.clusters <<- previous.matrices$nxK.edge.counts
   
-  # update according to whether a split or merge was performed
-  if(is.null(updated.c.bar[[2]]))
-  {
-    # if merge we only have 1 updated cluster
-    updated.clustering <- c(list(as.integer(updated.c.bar[[1]])), 
-                            unchanged.clusters)
-  }
-  else
-  {
-    updated.clustering <- c(updated.c.bar, unchanged.clusters)
-  }
+  # update reduced clustering (c.bar) with PGSM iteration
+  PGSM.iteration <- ParticleGibbsSplitMerge(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
+                                            resampling.threshold, alpha, beta1, beta2, directed,
+                                            as.probability)
+  updated.c.bar <- PGSM.iteration$updated.c.bar
+  chosen.particle.index <- PGSM.iteration$chosen.particle.index
+  #unchanged.clusters <- all.clusters[all.clusters %!in% c.bar]
   
-  return(list("updated.clustering" = updated.clustering,
+  # update full clustering - whilst preserving correct indices of clusters
+  updated.clustering <- UpdateFullClustering(c.bar, updated.c.bar, c.bar.cluster.indices,
+                                             non.c.bar, all.clusters)
+  global.num.clusters <<- length(updated.clustering)
+  
+  # update previous.matrices for next iteration of PGSM/Gibbs
+  previous.matrices <- PGSMUpdatePreviousMatricesUndirected(c.bar, updated.c.bar, previous.matrices, 
+                                                            c.bar.cluster.indices, non.c.bar, 
+                                                            chosen.particle.index, updated.clustering)
+  
+  return(list("previous.matrices" = previous.matrices,
+              "updated.clustering" = updated.clustering,
               "num.nodes.in.c.bar" = length(unlist(c.bar))))
 }
+
 
 #****************************************************
 #'  Run time calculator in hours

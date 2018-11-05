@@ -208,6 +208,8 @@ InitialSetupList <- function(all.clusters, num.nodes, adj, alpha, beta1, beta2, 
   KxK.max.counts <- InitialKxKMaxCountMatrix(all.clusters, num.nodes.in.clusters, directed)
   KxK.edge.counts <- InitialKxKEdgeCountMatrix(all.clusters, adj, directed)
   nxK.edge.counts <- InitialNxKMatrices(all.clusters, num.nodes, adj, directed)
+  
+  # doesn't matter if this is also used to initialise PGSM - this log gamma won't be used
   log.int.target <- LogIntermediateTargetGibbs(KxK.edge.counts, KxK.max.counts, 
                                                num.nodes.in.clusters, alpha, beta1, beta2, 
                                                K, num.nodes, directed)

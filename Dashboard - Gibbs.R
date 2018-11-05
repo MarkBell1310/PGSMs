@@ -17,8 +17,6 @@ sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
 start.clusters <- list(1:num.nodes) # list of clusters
 adj <- as_adj(sbm)
 all.clusters <- start.clusters
-global.num.clusters <<- length(all.clusters)
-
 
 # Gibbs tuning parameters
 alpha <- 1 # Dirichlet process parameter
@@ -42,7 +40,7 @@ start <- proc.time()
 for(i in 1:n.iters)
 {
   run.Gibbs <- suppressMessages(GibbsSweepSolo(all.clusters, alpha, beta1, beta2, num.nodes, 
-                                               previous.matrices, directed = directed))
+                                               previous.matrices, adj, directed = directed))
   all.clusters <- run.Gibbs$all.clusters
   previous.matrices <- run.Gibbs$previous.matrices
   

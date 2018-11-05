@@ -932,10 +932,11 @@ LogIntermediateTargetGibbs <- function(KxK.edge.counts, KxK.max.counts, num.node
 #' @param num.nodes number of nodes [scalar]
 #' @param previous.matrices edge count and max count matrices from previous iteration 
 #' - (either from Gibbs or PGSMs)
+#' @param adj adjacency matrix of network [matrix]
 #' @param directed whether network is directed or not [boolean]
 #' @return Updated clustering and previous matrices [list]
 GibbsSweepSolo <- function(all.clusters, alpha, beta1, beta2, num.nodes, previous.matrices,
-                           directed)
+                           adj, directed)
 {
   # Perform deterministic scan but with a random order
   random.nodes.order <- sample(1:num.nodes)
@@ -1088,7 +1089,6 @@ GibbsSweepSolo <- function(all.clusters, alpha, beta1, beta2, num.nodes, previou
               "all.clusters" = all.clusters))
 }
 
-
 #****************************************************
 #' Full Gibbs sweep (designed to work with PGSMs)
 #' @param all.clusters Current clustering [list of vectors]
@@ -1096,15 +1096,18 @@ GibbsSweepSolo <- function(all.clusters, alpha, beta1, beta2, num.nodes, previou
 #' @param beta1 likelihood tuning parameter [scalar]
 #' @param beta2 likelihood tuning parameter [scalar]
 #' @param num.nodes number of nodes [scalar]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs)
 #' @param adj adjacency matrix of network [matrix]
 #' @param directed whether network is directed or not [boolean]
 #' @return Updated clustering and previous matrices [list]
-GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, adj, directed)
+GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, 
+                                 previous.matrices, adj, directed)
 {
   # setup initialisation vectors/matrices
-  previous.matrices <- suppressMessages(InitialSetupList(all.clusters, num.nodes, adj, 
-                                                         alpha, beta1, beta2, 
-                                                         K = length(all.clusters), directed))
+  # previous.matrices <- suppressMessages(InitialSetupList(all.clusters, num.nodes, adj, 
+  #                                                        alpha, beta1, beta2, 
+  #                                                        K = length(all.clusters), directed))
 
   # Perform deterministic scan but with a random order
   random.nodes.order <- sample(1:num.nodes)
@@ -1130,9 +1133,32 @@ GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, a
     {
       cluster.to <- k
       
-      # if node already in proposed cluster, use previous matrices and log gamma
+      
+      # if node already in proposed cluster, use previous matrices and log gamma (log.int.target)
       if(cluster.to == cluster.from)
       {
+        #### THIS IF STATEMENT IS ONLY DIFFERENCE BETWEEN GibbsSweepIntegrated() & GibbsSweepSolo():
+        # if node already in proposed cluster, use previous matrices and log gamma (log.int.target)
+        # -only exception to this is if the 1st node is being moved, then the previous log gamma
+        # may have been calculated in PGSM and would only be over reduced clustering c.bar
+        # -so recalculate log gamma over whole clustering 
+        if(node == random.nodes.order[1])
+        {
+          log.int.target <- 
+            LogIntermediateTargetGibbs(KxK.edge.counts = previous.matrices$KxK.edge.counts, 
+                                       KxK.max.counts = previous.matrices$KxK.max.counts, 
+                                       num.nodes.in.clusters = previous.matrices$num.nodes.in.clusters, 
+                                       alpha, beta1, beta2, K, num.nodes, directed)
+          
+          temp.storage.list[[k]] <- list("num.nodes.in.clusters" = previous.matrices$num.nodes.in.clusters,
+                                         "KxK.max.counts" = previous.matrices$KxK.max.counts,
+                                         "KxK.edge.counts" = previous.matrices$KxK.edge.counts,
+                                         "nxK.edge.counts" = previous.matrices$nxK.edge.counts,
+                                         "log.int.target" = log.int.target,
+                                         "cluster.to" = cluster.from)
+          next
+        }
+        
         temp.storage.list[[k]] <- list("num.nodes.in.clusters" = previous.matrices$num.nodes.in.clusters,
                                        "KxK.max.counts" = previous.matrices$KxK.max.counts,
                                        "KxK.edge.counts" = previous.matrices$KxK.edge.counts,
@@ -1251,6 +1277,7 @@ GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, a
     }
   }
   
-  return(all.clusters)
+  return(list("all.clusters" = all.clusters,
+              "previous.matrices" = previous.matrices))
 }
 
