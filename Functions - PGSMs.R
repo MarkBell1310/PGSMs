@@ -314,40 +314,45 @@ CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clust
                                                global.non.c.bar.indices, c.bar.current, 
                                                t, particle, sigma, non.c.bar, directed)
 {
-  # Count edges between new node & each cluster of non.c.bar
-  new.edge.counts <- 
-    global.counts.between.nodes.clusters[sigma[t], global.non.c.bar.indices] 
-  m <- length(new.edge.counts)
-  
-  # if network undirected, max counts is correct - otherwise double the values
+  # max counts is length of each non.c.bar cluster - but adjustments required for output vector format
   max.counts <- sapply(non.c.bar, length)
+  m <- length(global.non.c.bar.indices)
   
   if(directed == TRUE)
   {
     max.counts <- 2 * max.counts
-                         
   }
 
   # different conditions required at t=2 when split or merge decision is made
   if(t == 2)
   {
+    # calculate edge counts separately for sigma1 & sigma2
+    edge.counts1 <- global.counts.between.nodes.clusters[sigma[1], global.non.c.bar.indices]
+    edge.counts2 <- global.counts.between.nodes.clusters[sigma[2], global.non.c.bar.indices]
+    
     # Merge particle
     if(particle[t] == 2)
     {
-      return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+      # sum the edge counts for sigma1 & sigma2: double the max counts for c.bar1, zero for c.bar2
+      return(list("edge.counts" = c(edge.counts1 + edge.counts2, rep(0, m)),
                   "max.counts" = c(2 * max.counts, rep(0, m))))
     }
     
     # Split particle
     if(particle[t] == 4)
     {
-      return(list("edge.counts" = c(new.edge.counts, rep(0, m)),
+      # concatenate the edge counts for sigma1 & sigma2: same for max counts
+      return(list("edge.counts" = c(edge.counts1, edge.counts2),
                   "max.counts" = c(max.counts, max.counts))) 
     }
   }
   
   if(t > 2)
   {
+    # Count edges between new node & each cluster of non.c.bar
+    new.edge.counts <- 
+      global.counts.between.nodes.clusters[sigma[t], global.non.c.bar.indices] 
+    
     # Node added to cluster 1:
     # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
     if(length(c.bar.current) == 1 || particle[t] == 3)
@@ -1877,6 +1882,22 @@ LogTau1McDaid <- function(alpha, K, num.nodes)
   - lfactorial(K) + lgamma(alpha * K) - K * lgamma(alpha) - lgamma(num.nodes + (alpha * K)) 
 }
 
+#****************************************************
+#' Debug function: calculate maximum possible number of nodes within a cluster
+MaxNodesWithinCluster <- function(num.nodes.in.cluster)
+{
+  x <- num.nodes.in.cluster - 1
+  store <- rep(0, x)
+  result <- store[1] <- x
+  
+  for(i in 2:x)
+  {
+    result <- result - 1
+    store[i] <- result
+  }
+  sum(store)
+}
+MaxNodesWithinCluster(20)
 
 #****************************************************
 #
