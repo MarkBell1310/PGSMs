@@ -8,12 +8,13 @@ source("SourceScript.R"); set.seed(5)
 ## generate SBM
 num.nodes <- 20 # no. nodes
 num.clust <- 4  # no. clusters
-pref.matrix = forceSymmetric(matrix(rbeta(num.clust^2, 2, 2),(c(num.clust, num.clust))))
+pref.matrix = matrix(rbeta(num.clust^2, 1, 1),(c(num.clust, num.clust)))
+#pref.matrix = forceSymmetric(matrix(rbeta(num.clust^2, 1, 3),(c(num.clust, num.clust))))
 block.sizes <- rep(num.nodes/num.clust, num.clust) # no. nodes in each cluster (K length vector)
-directed <- FALSE
-#sbm <- sample_sbm(num.nodes, pref.matrix, block.sizes, directed = directed, loops = FALSE); plot(sbm)
-sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
-                  block.sizes = rep(4, 5), directed = FALSE, loops = FALSE); plot(sbm)
+directed <- TRUE
+sbm <- sample_sbm(num.nodes, pref.matrix, block.sizes, directed = directed, loops = FALSE); plot(sbm)
+#sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
+#                  block.sizes = rep(4, 5), directed = directed, loops = FALSE); plot(sbm)
 start.clusters <- list(1:num.nodes) # list of clusters
 adj <- as_adj(sbm)
 all.clusters <- start.clusters
@@ -27,7 +28,7 @@ N <- 20   # no. particles: (Bouchard uses 20)
 resampling.threshold <- 0.5
 n.iters <- 10000
 as.probability <- 0.0 # probability of ancester sampling step 
-prior <<- "dirichlet.process" # choose from "dirichlet.process" or "mcdaid"
+prior <<- "mcdaid" # choose from "dirichlet.process" or "mcdaid"
 network.model <<- "sbm"  # choose from "sbm" or "ldergm"
 # model.formula <<- "edges + kstar(2)" # for LDERGM
 # model.formula.terms <<- 2 # for LDERGM

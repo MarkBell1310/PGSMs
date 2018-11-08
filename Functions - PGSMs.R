@@ -182,124 +182,141 @@ MapClustersToAllocations <- function(sigma, c.bar)
 
 
 #****************************************************
-#'  Count new edges WITHIN the c.bar clusters 
+#'  Count new edges WITHIN the c.bar clusters for undirected network
 #'  (between the new node and remaining nodes)
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed whether network is directed [boolean]
 #' @return new edge counts WITHIN the c.bar clusters [vector: length = 2] 
-CountNewEdgesWithinCbarClusters <- function(c.bar.current, adj, t, sigma, particle, directed)
+CountNewEdgesWithinCbarClustersUndirected <- function(c.bar.current, adj, t, sigma, particle)
 {
   ## Count edges between new node and all remaining nodes in the same cluster
   ## (that new node has been added to)
   
-  ## Output given in vector of form below - one of the two values must be zero:
-  ## c(within.c.bar1, within.c.bar2)
-  
-  # for undirected networks only need to sum adjacency matrix one way
-  if(directed == FALSE)
+  ## Output given in vector of following form: c(within.c.bar1, within.c.bar2)
+  ## Node is added to only one cluster - so one of the two values must be zero:
+   
+  # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
+  if(length(c.bar.current) == 1 || particle[t] == 3)
   {
-    # IF only 1 cluster
-    # OR if 2 clusters AND new node added to cluster 1
-    if(length(c.bar.current) == 1 || particle[t] == 3)
-    {
-      return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]), 0),
-                  "max.counts" = c(length(c.bar.current[[1]]) - 1, 0)))
-    }
-    
-    # ELSE if 2 clusters AND new node added to cluster 2 
-    if(particle[t] == 4)
-    {
-      return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]])),
-                  "max.counts" = c(0, length(c.bar.current[[2]]) - 1)))
-    }
+    return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]), 0),
+                "max.counts" = c(length(c.bar.current[[1]]) - 1, 0)))
   }
-
-  # for directed networks need to sum adjacency matrix both ways
-  if(directed == TRUE)
+  
+  # ELSE if 2 clusters AND new node added to cluster 2 
+  if(particle[t] == 4)
   {
-    # IF only 1 cluster
-    # OR if 2 clusters AND new node added to cluster 1
-    if(length(c.bar.current) == 1 || particle[t] == 3)
-    {
-      return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
-                                      sum(adj[c.bar.current[[1]], sigma[t]]), 0),
-                  "max.counts" = c(2 * (length(c.bar.current[[1]]) - 1), 0)))
+    return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]])),
+                "max.counts" = c(0, length(c.bar.current[[2]]) - 1)))
     }
-    
-    # ELSE if 2 clusters AND new node added to cluster 2 
-    if(particle[t] == 4)
-    {
-      return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
-                                      sum(adj[c.bar.current[[2]], sigma[t]])),
-                  "max.counts" = c(0, 2 * (length(c.bar.current[[2]]) - 1)))) 
-    }
+}
+#CountNewEdgesWithinCbarClustersUndirected(c.bar.current, adj, t, sigma, particle)
+
+#****************************************************
+#'  Count new edges WITHIN the c.bar clusters for directed network
+#'  (between the new node and remaining nodes)
+#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @return new edge counts WITHIN the c.bar clusters [vector: length = 2] 
+CountNewEdgesWithinCbarClustersDirected <- function(c.bar.current, adj, t, sigma, particle)
+{
+  ## Count edges between new node and all remaining nodes in the same cluster
+  ## (that new node has been added to)
+  
+  ## Output given in vector of following form: c(within.c.bar1, within.c.bar2)
+  ## Node is added to only one cluster - so one of the two values must be zero:
+  
+  # For directed networks need to consider both upper/lower triangles of adjacency matrix,
+  # but since we're counting within-cluster edges, here we simply add them. 
+  
+  # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
+  if(length(c.bar.current) == 1 || particle[t] == 3)
+  {
+    return(list("edge.counts" = c(sum(adj[sigma[t], c.bar.current[[1]]]) + 
+                                    sum(adj[c.bar.current[[1]], sigma[t]]), 0),
+                "max.counts" = c(2 * (length(c.bar.current[[1]]) - 1), 0)))
+  }
+  
+  # ELSE if 2 clusters AND new node added to cluster 2 
+  if(particle[t] == 4)
+  {
+    return(list("edge.counts" = c(0, sum(adj[sigma[t], c.bar.current[[2]]]) + 
+                                    sum(adj[c.bar.current[[2]], sigma[t]])),
+                "max.counts" = c(0, 2 * (length(c.bar.current[[2]]) - 1)))) 
   }
 }
-#CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, particle, directed = FALSE)
+#CountNewEdgesWithinCbarClustersDirected(c.bar.current, adj, t, sigma, particle)
 
 
 #****************************************************
-#'  Count new edges BETWEEN the c.bar clusters
-#'  
+#'  Count new edges BETWEEN the c.bar clusters for undirected network
 #' @param c.bar.current The 2 clusters that contain the anchors [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed whether network is directed [boolean]
-#' 
 #' @return new edge counts BETWEEN the c.bar clusters [scalar] 
-CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, particle, directed)
+CountNewEdgesBetweenCbarClustersUndirected <- function(c.bar.current, adj, t, sigma, particle)
 {
   # count edges between new node and all elements in the OTHER cluster
+  # for undirected networks this is a scalar
   
-  # for undirected networks only need to sum adjacency matrix one way
-  if(directed == FALSE)
+  # IF new node added to cluster 2
+  if(particle[t] == 4)
   {
-    # IF new node added to cluster 2
-    if(particle[t] == 4)
-    {
-      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[1]]]),
-                  "max.counts" = length(c.bar.current[[1]])))
-    }
-    
-    # IF new node added to cluster 1
-    if(particle[t] == 3)
-    {
-      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[2]]]),
-                  "max.counts" = length(c.bar.current[[2]])))
-    }
+    return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[1]]]),
+                "max.counts" = length(c.bar.current[[1]])))
   }
   
-  # for directed networks need to sum adjacency matrix both ways
-  if(directed == TRUE)
+  # IF new node added to cluster 1
+  if(particle[t] == 3)
   {
-    # IF new node added to cluster 2
-    if(particle[t] == 4)
-    {
-      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[1]]]) +
-                                  sum(adj[c.bar.current[[1]], sigma[t]]),
-                  "max.counts" = length(c.bar.current[[1]]) * 2))
-    }
-    
-    # IF new node added to cluster 1
-    if(particle[t] == 3)
-    {
-      return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[2]]]) +
-                                  sum(adj[c.bar.current[[2]], sigma[t]]),
-                  "max.counts" = length(c.bar.current[[2]]) * 2))
-    }
+    return(list("edge.counts" = sum(adj[sigma[t], c.bar.current[[2]]]),
+                "max.counts" = length(c.bar.current[[2]])))
   }
 }
-#CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, particle, directed = FALSE)
-
+  
+#****************************************************
+#'  Count new edges BETWEEN the c.bar clusters for directed network
+#' @param c.bar.current The 2 clusters that contain the anchors [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @return new edge counts BETWEEN the c.bar clusters [scalar] 
+CountNewEdgesBetweenCbarClustersDirected <- function(c.bar.current, adj, t, sigma, particle)
+{
+  # count edges between new node and all elements in the OTHER cluster
+  # for directed networks this is a vector of length 2
+  
+  # IF new node added to cluster 2
+  if(particle[t] == 4)
+  {
+    edge.counts1 <- sum(adj[sigma[t], c.bar.current[[1]]])
+    edge.counts2 <- sum(adj[c.bar.current[[1]], sigma[t]])
+    
+    return(list("edge.counts" = c(edge.counts1, edge.counts2),
+                "max.counts" = rep(length(c.bar.current[[1]]), 2)))
+  }
+  
+  # IF new node added to cluster 1
+  if(particle[t] == 3)
+  {
+    edge.counts1 <- sum(adj[sigma[t], c.bar.current[[2]]]) 
+    edge.counts2 <- sum(adj[c.bar.current[[2]], sigma[t]])
+    
+    return(list("edge.counts" = c(edge.counts1, edge.counts2),
+                "max.counts" = rep(length(c.bar.current[[2]]), 2)))
+  }
+}
 
 #****************************************************
-#'  Count new edges BETWEEN c.bar and non.c.bar clusters
+#'  Count new edges BETWEEN c.bar and non.c.bar clusters for undirected network
 #' @param global.counts.between.nodes.clusters Edge counts between every node & cluster [matrix]
 #' @param global.non.c.bar.indices Indices of non.c.bar clusters [vector]
 #' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
@@ -307,21 +324,18 @@ CountNewEdgesBetweenCbarClusters <- function(c.bar.current, adj, t, sigma, parti
 #' @param t current time [scalar]
 #' @param sigma Ordered elements of c.bar [vector]
 #' @param non.c.bar clusters that do not contain the anchors [list]
-#' @param directed whether network is directed [boolean]
 #' @return new edge counts BETWEEN c.bar and non.c.bar clusters [vector]
 #'         [vector length = 2 * length(non.c.bar)]
-CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clusters, 
-                                               global.non.c.bar.indices, c.bar.current, 
-                                               t, particle, sigma, non.c.bar, directed)
+CountNewEdgesBetweenCbarAndNonCbarUndirected <- function(global.counts.between.nodes.clusters, 
+                                                         global.non.c.bar.indices, c.bar.current, 
+                                                         t, particle, sigma, non.c.bar)
 {
+  # This function counts edges between the new node & each cluster of non.c.bar
+  # For undirected networks the output vector is length = 2 * length(non.c.bar)
+  
   # max counts is length of each non.c.bar cluster - but adjustments required for output vector format
   max.counts <- sapply(non.c.bar, length)
   m <- length(global.non.c.bar.indices)
-  
-  if(directed == TRUE)
-  {
-    max.counts <- 2 * max.counts
-  }
 
   # different conditions required at t=2 when split or merge decision is made
   if(t == 2)
@@ -370,41 +384,118 @@ CountNewEdgesBetweenCbarAndNonCbar <- function(global.counts.between.nodes.clust
     }
   }
 }
-#CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, global.non.c.bar.indices, c.bar.current, t, particle, sigma, non.c.bar, directed)
 
 #****************************************************
-#'  Count new edges for all 3 types
+#'  Count new edges BETWEEN c.bar and non.c.bar clusters for directed network
+#' @param global.counts.between.nodes.clusters Edge counts from each node to each cluster [matrix]
+#' @param global.counts.between.clusters.nodes Edge counts from each cluster to each node [matrix]
+#' @param global.non.c.bar.indices Indices of non.c.bar clusters [vector]
+#' @param c.bar.current The 1 or 2 clusters that contain the anchors [list]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param sigma Ordered elements of c.bar [vector]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @return new edge counts BETWEEN c.bar and non.c.bar clusters [vector]
+#'         [vector length = 2 * length(non.c.bar)]
+CountNewEdgesBetweenCbarAndNonCbarDirected <- function(global.counts.between.nodes.clusters,
+                                                       global.counts.between.clusters.nodes,
+                                                       global.non.c.bar.indices, c.bar.current, 
+                                                       t, particle, sigma, non.c.bar)
+{
+  # This function counts edges between the new node & each cluster of non.c.bar
+  # For directed networks the output vector has length = 4 * length(non.c.bar)
+  
+  # max counts is length of each non.c.bar cluster - but adjustments required for output vector format
+  max.counts <- sapply(non.c.bar, length)
+  m <- length(non.c.bar)
+  
+  # different conditions required at t=2 when split or merge decision is made
+  if(t == 2)
+  {
+    # calculate edge counts separately for sigma1 & sigma2, using appropriate matrix
+    edge.counts1 <- global.counts.between.nodes.clusters[sigma[1], global.non.c.bar.indices]
+    edge.counts2 <- global.counts.between.clusters.nodes[sigma[1], global.non.c.bar.indices]
+    edge.counts3 <- global.counts.between.nodes.clusters[sigma[2], global.non.c.bar.indices]
+    edge.counts4 <- global.counts.between.clusters.nodes[sigma[2], global.non.c.bar.indices]
+    
+    # Merge particle
+    if(particle[t] == 2)
+    {
+      # sum the edge counts for sigma1 & sigma2: double the max counts for c.bar1, zero for c.bar2
+      return(list("edge.counts" = c(edge.counts1 + edge.counts3, edge.counts2 + edge.counts4,
+                                    rep(0, 2 * m)),
+                  "max.counts" = c(rep(2 * max.counts, 2), rep(0, 2 * m))))
+    }
+    
+    # Split particle
+    if(particle[t] == 4)
+    {
+      # concatenate the edge counts and max counts
+      return(list("edge.counts" = c(edge.counts1, edge.counts2, edge.counts3, edge.counts4),
+                  "max.counts" = rep(max.counts, 4))) 
+    }
+  }
+  
+  if(t > 2)
+  {
+    # Count edges between new node & each cluster of non.c.bar
+    edge.counts1 <- global.counts.between.nodes.clusters[sigma[t], global.non.c.bar.indices] 
+    edge.counts2 <- global.counts.between.clusters.nodes[sigma[t], global.non.c.bar.indices] 
+    
+    # Node added to cluster 1:
+    # IF only 1 cluster OR if 2 clusters AND new node added to cluster 1
+    if(length(c.bar.current) == 1 || particle[t] == 3)
+    {
+      return(list("edge.counts" = c(c(edge.counts1, edge.counts2), rep(0, 2 * m)),
+                  "max.counts" = c(rep(max.counts, 2), rep(0, 2 * m))))
+    }
+    
+    # Node added to cluster 2:
+    # ELSE if 2 clusters AND new node added to cluster 2 
+    if(particle[t] == 4)
+    {
+      return(list("edge.counts" = c(rep(0, 2 * m), c(edge.counts1, edge.counts2)),
+                  "max.counts" = c(rep(0, 2 * m), rep(max.counts, 2))))
+    }
+  }
+}
+
+#****************************************************
+#'  Count new edges for all 3 types of edges - for undirected network
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed whether network is directed [boolean]
 #' @return new edge counts for all 3 types; in the correct form for RunningTotalEdgeCount()
 #'         function  [vector]
-NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed)  
+NewEdgeCountsUndirected <- function(c.bar.current, adj, non.c.bar, sigma, particle, t)  
 {
   # This function needs to consider the following 3 types of edge counts:
   # (1) nodes WITHIN cluster(s) in c.bar.current
   # (2) nodes BETWEEN the 2 clusters in c.bar.current (only if we have 2 clusters) 
   # (3) nodes BETWEEN c.bar cluster(s) and non.c.bar cluster(s)
   
-  # Output vector assumes the following (2 clusters in c.bar) form:
+  # Output vector always assumes the following (2 clusters in c.bar) form:
   # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
   #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  #
+  # The first 3 elements are always present  - even if there's only 1 c.bar cluster
+  # If there are 0 non.c.bar clusters, then output vector has length = 3
+  # If there are m > 0 non.c.bar clusters, then output vector has length = 3 + 2m
+  
   
   # TYPE (1): nodes within clusters in c.bar
-  within.c.bar <- CountNewEdgesWithinCbarClusters(c.bar.current, adj, t, sigma, 
-                                                  particle, directed)
+  within.c.bar <- CountNewEdgesWithinCbarClustersUndirected(c.bar.current, adj, t, sigma, particle)
   within.c.bar.edge.counts <- within.c.bar$edge.counts
   within.c.bar.max.counts <- within.c.bar$max.counts
   
   # TYPE (2): nodes between clusters in c.bar (c.bar must have 2 clusters)
   if(length(c.bar.current) == 2)
   {
-    between.c.bar <- CountNewEdgesBetweenCbarClusters(c.bar.current, adj, t, sigma, 
-                                                      particle, directed)
+    between.c.bar <- CountNewEdgesBetweenCbarClustersUndirected(c.bar.current, adj, t, sigma, 
+                                                                particle)
     between.c.bar.edge.counts <- between.c.bar$edge.counts
     between.c.bar.max.counts <- between.c.bar$max.counts
   }
@@ -417,9 +508,9 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
   if(length(non.c.bar) >= 1)
   {
     between.c.bar.non.c.bar <- 
-      CountNewEdgesBetweenCbarAndNonCbar(global.counts.between.nodes.clusters, 
-                                         global.non.c.bar.indices, c.bar.current, 
-                                         t, particle, sigma, non.c.bar, directed)
+      CountNewEdgesBetweenCbarAndNonCbarUndirected(global.counts.between.nodes.clusters, 
+                                                   global.non.c.bar.indices, c.bar.current, 
+                                                   t, particle, sigma, non.c.bar)
     between.c.bar.non.c.bar.edge.counts <- between.c.bar.non.c.bar$edge.counts
     between.c.bar.non.c.bar.max.counts <- between.c.bar.non.c.bar$max.counts
   }
@@ -434,8 +525,78 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
               "max.counts" = c(within.c.bar.max.counts, between.c.bar.max.counts, 
                                between.c.bar.non.c.bar.max.counts)))
 }
-#NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed = FALSE)  
 
+#****************************************************
+#'  Count new edges for all 3 types of edges - for directed network
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @return new edge counts for all 3 types; in the correct form for RunningTotalEdgeCount()
+#'         function  [vector]
+NewEdgeCountsDirected <- function(c.bar.current, adj, non.c.bar, sigma, particle, t)  
+{
+  # This function needs to consider the following 3 types of edge counts:
+  # (1) nodes WITHIN cluster(s) in c.bar.current
+  # (2) nodes BETWEEN the 2 clusters in c.bar.current (only if we have 2 clusters) 
+  # (3) nodes BETWEEN c.bar cluster(s) and non.c.bar cluster(s)
+  
+  # Output vector always assumes the following (2 clusters in c.bar) form:
+  # c(WithinCbar1, WithinCbar2, Cbar1ToCbar2, Cbar2ToCbar1,
+  #   Cbar1ToNonCbarClusters, NonCbarClustersToCbar1, Cbar2ToNonCbarClusters, NonCbarClustersToCbar2)
+  #
+  # where:
+  #   Cbar1ToNonCbarClusters = Cbar1ToNonCbar1, Cbar1ToNonCbar2, Cbar1ToNonCbar3, ... )
+  #   NonCbarClustersToCbar1 = NonCbar1ToCbar1, NonCbar2ToCbar1, NonCbar3ToCbar1, ... )
+  #   Cbar2ToNonCbarClusters = Cbar2ToNonCbar1, Cbar2ToNonCbar2, Cbar2ToNonCbar3, ... )
+  #   NonCbarClustersToCbar2 = NonCbar1ToCbar2, NonCbar2ToCbar2, NonCbar3ToCbar2, ... )
+  #
+  # First 4 elements of output vector are always present - even if there's only 1 c.bar cluster
+  # If there are 0 non.c.bar clusters, then output vector has length = 4
+  # If there are m > 0 non.c.bar clusters, then output vector has length = 4 + 4m
+  
+  
+  # TYPE (1): nodes within clusters in c.bar
+  within.c.bar <- CountNewEdgesWithinCbarClustersDirected(c.bar.current, adj, t, sigma, particle)
+  within.c.bar.edge.counts <- within.c.bar$edge.counts
+  within.c.bar.max.counts <- within.c.bar$max.counts
+  
+  # TYPE (2): nodes between clusters in c.bar (c.bar must have 2 clusters)
+  if(length(c.bar.current) == 2)
+  {
+    between.c.bar <- CountNewEdgesBetweenCbarClustersDirected(c.bar.current, adj, t, sigma, particle)
+    between.c.bar.edge.counts <- between.c.bar$edge.counts
+    between.c.bar.max.counts <- between.c.bar$max.counts
+  }
+  else
+  {
+    between.c.bar.edge.counts <- between.c.bar.max.counts <- rep(0, 2)
+  }
+  
+  # TYPE (3): nodes between c.bar and non c.bar clusters
+  if(length(non.c.bar) >= 1)
+  {
+    between.c.bar.non.c.bar <- 
+      CountNewEdgesBetweenCbarAndNonCbarDirected(global.counts.between.nodes.clusters,
+                                                 global.counts.between.clusters.nodes,
+                                                 global.non.c.bar.indices, c.bar.current, 
+                                                 t, particle, sigma, non.c.bar)
+    between.c.bar.non.c.bar.edge.counts <- between.c.bar.non.c.bar$edge.counts
+    between.c.bar.non.c.bar.max.counts <- between.c.bar.non.c.bar$max.counts
+  }
+  else
+  {
+    # if no non.c.bar clusters, set to NULL
+    between.c.bar.non.c.bar.edge.counts <- between.c.bar.non.c.bar.max.counts <- NULL
+  }
+  
+  return(list("edge.counts" = c(within.c.bar.edge.counts, between.c.bar.edge.counts, 
+                                between.c.bar.non.c.bar.edge.counts),
+              "max.counts" = c(within.c.bar.max.counts, between.c.bar.max.counts, 
+                               between.c.bar.non.c.bar.max.counts)))
+}
 
 #****************************************************
 #'  Calculate running total of edge counts 
@@ -449,10 +610,18 @@ NewEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, dir
 #' @param particle.index index of particle [scalar]
 #' @return total edge counts [vector]
 RunningTotalsEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,
-                                  particle.index)
+                                    particle.index)
 {
   # new edge counts
-  new.counts <- NewEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed) 
+  if(directed == FALSE)
+  {
+    new.counts <- NewEdgeCountsUndirected(c.bar.current, adj, non.c.bar, sigma, particle, t)
+  }
+  if(directed == TRUE)
+  {
+    new.counts <- NewEdgeCountsDirected(c.bar.current, adj, non.c.bar, sigma, particle, t)
+  }
+   
   new.edge.counts <- new.counts$edge.counts
   new.max.counts <- new.counts$max.counts
   
@@ -466,45 +635,49 @@ RunningTotalsEdgeCounts <- function(c.bar.current, adj, non.c.bar, sigma, partic
 #RunningTotalsEdgeCounts(c.bar.current, adj, non.c.bar, sigma, particle, t, directed,particle.index)
 
 #****************************************************
-#'  Counts for likelihood - Remove redundant elements of count vectors
+#'  Counts for likelihood undirected - Remove redundant elements of count vectors
 #' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
 #' @param adj adjacency matrix of the SBM [matrix]
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
 #' @param particle sequence of allocation decisions up to time t [vector]
 #' @param t current time [scalar]
-#' @param directed is network directed or not [boolean]
 #' @param particle.index index of particle [scalar]
 #' @return total edge counts and maximum edge counts [list of vectors]
-CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle, 
-                                t, directed, particle.index)
+CountsForLikelihoodUndirected <- function(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                          t, particle.index)
 {
-  ### Note: 2 "FORMS" of vector for storing edge counts. So far we have assumed FORM 1.
-  ### Now need to convert to appropriate form - depending on no. c.bar clusters 
-  # "FORM 1": 2 clusters in c.bar (2m + 3 elements), where m = no. non.c.bar clusters
+  # The functions at lower levels (eg edge count functions) so far assume the (2 clusters in c.bar) 
+  # form for the edge count and max count vectors - i.e. they assume a split particle form:
+  # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  #
+  # This means that if we only have 1 cluster in c.bar, there will be redundant elements of
+  # these vectors - this function removes these redundant elements for a merge particle.
+
+  # Split particle: 2 clusters in c.bar (2m + 3 elements), where m = no. non.c.bar clusters
   #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
   #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
-  # "FORM 2": 1 cluster in c.bar (m + 1 elements)
+  
+  # Merge particle: 1 cluster in c.bar (m + 1 elements)
   #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
   
-  ### Note: if no non.c.bar clusters, then terms (BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
-  #         BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...) are NULL. 
+  # Recall that if m = 0: then terms (BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #         BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...) are set to NULL in NewEdgeCounts(). 
   
-  ##### Split particle
-  # IF split particle then leave edge counts in their current form below ("FORM 1"):
-  #   c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ... ,
-  #     BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+  
+  ## Split particle: leave vectors in current form
   running.totals <- RunningTotalsEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
-                                            particle, t, directed, particle.index)
+                                            particle, t, directed = FALSE, particle.index)
+  
+  # running totals used to update global counts when particle has been chosen 
   edge.count.running.total <- running.totals$edge.count.running.total
   max.count.running.total <- running.totals$max.count.running.total
   
   likelihood.edge.count.total <- edge.count.running.total
   likelihood.max.count.total <- max.count.running.total
   
-  ##### Merge particle
-  # IF merge particle then remove redundant elements of vectors for likelihood calc ("FORM 2"):
-  #   c(WithinCbar1, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...)
+  ## Merge particle: remove redundant elements of vectors for likelihood calculation
   if(particle[2] == 2)
   {
     m <- length(non.c.bar)
@@ -530,7 +703,82 @@ CountsForLikelihood <- function(c.bar.current, adj, non.c.bar, sigma, particle,
               "likelihood.edge.count.total" = likelihood.edge.count.total,
               "likelihood.max.count.total" = likelihood.max.count.total))
 }
-#CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, t, directed, particle.index)
+
+#****************************************************
+#'  Counts for likelihood directed - Remove redundant elements of count vectors
+#' @param c.bar.current clusters that contain the anchors, filled in up to time t [list]
+#' @param adj adjacency matrix of the SBM [matrix]
+#' @param non.c.bar clusters that do not contain the anchors [list]
+#' @param sigma Uniform permutation on closure of anchors (output from SamplePermutation) [vector]
+#' @param particle sequence of allocation decisions up to time t [vector]
+#' @param t current time [scalar]
+#' @param particle.index index of particle [scalar]
+#' @return total edge counts and maximum edge counts [list of vectors]
+CountsForLikelihoodDirected <- function(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                          t, particle.index)
+{
+  # The functions at lower levels (eg edge count functions) so far assume the (2 clusters in c.bar) 
+  # form for the edge count and max count vectors - i.e. they assume a split particle form:
+  # c(WithinCbar1, WithinCbar2, Cbar1ToCbar2, Cbar2ToCbar1,
+  #   Cbar1ToNonCbarClusters, NonCbarClustersToCbar1, Cbar2ToNonCbarClusters, NonCbarClustersToCbar2)
+  #
+  # where:
+  #   Cbar1ToNonCbarClusters = Cbar1ToNonCbar1, Cbar1ToNonCbar2, Cbar1ToNonCbar3, ... )
+  #   NonCbarClustersToCbar1 = NonCbar1ToCbar1, NonCbar2ToCbar1, NonCbar3ToCbar1, ... )
+  #   Cbar2ToNonCbarClusters = Cbar2ToNonCbar1, Cbar2ToNonCbar2, Cbar2ToNonCbar3, ... )
+  #   NonCbarClustersToCbar2 = NonCbar1ToCbar2, NonCbar2ToCbar2, NonCbar3ToCbar2, ... )  
+  
+  # This means that if we only have 1 cluster in c.bar, there will be redundant elements of
+  # these vectors - this function removes these redundant elements for a merge particle.
+  
+  # Recall that if m = 0: then terms (BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
+  #  BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...) etc. were already set to NULL in NewEdgeCounts().
+
+  # Split particle: 2 clusters in c.bar (4m + 4 elements), where m = no. non.c.bar clusters
+  # c(WithinCbar1, WithinCbar2, Cbar1ToCbar2, Cbar2ToCbar1,
+  #   Cbar1ToNonCbarClusters, NonCbarClustersToCbar1, Cbar2ToNonCbarClusters, NonCbarClustersToCbar2)
+  
+  # Merge particle: 1 cluster in c.bar (2m + 1 elements)
+  #   c(WithinCbar1, Cbar1ToNonCbar1, NonCbar1ToCbar1, Cbar1NonCbar2, NonCbar2ToCbar1, ...)
+  
+  
+  ## Split particle: leave vectors in current form
+  running.totals <- RunningTotalsEdgeCounts(c.bar.current, adj, non.c.bar, sigma, 
+                                            particle, t, directed = TRUE, particle.index)
+  
+  # running totals used to update global counts when particle has been chosen 
+  edge.count.running.total <- running.totals$edge.count.running.total
+  max.count.running.total <- running.totals$max.count.running.total
+  
+  likelihood.edge.count.total <- edge.count.running.total
+  likelihood.max.count.total <- max.count.running.total
+  
+  ## Merge particle: remove redundant elements of vectors for likelihood calculation
+  if(particle[2] == 2)
+  {
+    m <- length(non.c.bar)
+    
+    # IF there is at least one non.c.bar cluster
+    if(m > 0)
+    {
+      likelihood.edge.count.total <- 
+        edge.count.running.total[-c(2, 3, 4, (4 + (2*m) + 1):length(edge.count.running.total))]
+      likelihood.max.count.total <- 
+        max.count.running.total[-c(2, 3, 4, (4 + (2*m) + 1):length(max.count.running.total))] 
+    }
+    
+    # IF there are no non.c.bar clusters
+    if(m == 0)
+    {
+      likelihood.edge.count.total <- edge.count.running.total[-c(2, 3, 4)]
+      likelihood.max.count.total <- max.count.running.total[-c(2, 3, 4)]
+    }  
+  }
+  return(list("edge.count.running.total" = edge.count.running.total,
+              "max.count.running.total" = max.count.running.total,
+              "likelihood.edge.count.total" = likelihood.edge.count.total,
+              "likelihood.max.count.total" = likelihood.max.count.total))
+}
 
 #****************************************************
 #'  Log of intermediate target distribution at time t (Log "Gamma")
@@ -556,14 +804,19 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
 {
   # calculate "c.bar.current": c.bar at time t
   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
-  # if(is.null(c.bar.current[[2]]))
-  # {
-  #   c.bar.current <- list(c.bar.current[[1]])
-  # }
   
   # count relevant edges within and between clusters
-  all.counts <- CountsForLikelihood(c.bar.current, adj, non.c.bar, sigma, particle, 
-                                    t, directed, particle.index)
+  if(directed == FALSE)
+  {
+    all.counts <- CountsForLikelihoodUndirected(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                                t, particle.index)
+  }
+  if(directed == TRUE)
+  {
+    all.counts <- CountsForLikelihoodDirected(c.bar.current, adj, non.c.bar, sigma, particle, 
+                                              t, particle.index)
+  }
+  
   edge.counts <- all.counts$likelihood.edge.count.total
   max.counts <- all.counts$likelihood.max.count.total
   n <- length(edge.counts)
@@ -572,9 +825,13 @@ LogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.bar, a
   log.likelihoods <- rep(0, n)
   for (i in 1:n)
   {
-    log.likelihoods[i] <-  log(beta(beta1 + edge.counts[i], 
-                                    max.counts[i] - edge.counts[i] + beta2)) - 
-                            log(beta(beta1, beta2))
+    log.likelihoods[i] <-  lbeta(beta1 + edge.counts[i], 
+                                    max.counts[i] - edge.counts[i] + beta2) - 
+                            lbeta(beta1, beta2)
+    
+    # log.likelihoods[i] <-  log(beta(beta1 + edge.counts[i], 
+    #                                 max.counts[i] - edge.counts[i] + beta2)) - 
+    #   log(beta(beta1, beta2))
   }
 
   # prior for log.int.target
@@ -1116,102 +1373,102 @@ LogUnnormalisedWeight <- function(sigma, s, particle, log.previous.unnormalised.
 }
 
 
-#****************************************************
-#'  Create global matrix of edge counts between every node and every cluster
-#' @param all.clusters all current clusters [list of vectors]
-#' @param num.nodes number of nodes [scalar]
-#' @param directed whether network is directed or not [boolean]
-#' @return edge counts [matrix: dim = no. nodes x no. clusters]
-CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters, num.nodes, 
-                                                                   directed)
-{
-  K <- length(all.clusters)
-  edge.counts.matrix <- Matrix(rep(0, num.nodes*K), c(num.nodes, K))
-  
-  # # loop through all nodes and all clusters
-  # for(node in 1:num.nodes)
-  # {
-  #   for(cluster in 1:K)
-  #   {
-  #     # if network undirected
-  #     if(directed == FALSE)
-  #     {
-  #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
-  #     }
-  #     
-  #     # if network directed
-  #     if(directed == TRUE)
-  #     {
-  #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]]) + 
-  #                                             sum(adj[all.clusters[[cluster]], node])
-  #     }
-  #   }
-  # }
-  
-  if(directed == FALSE)
-  {
-    for(cluster in 1:K)
-    {
-      edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
-      {
-        sum(adj[x, all.clusters[[cluster]]])
-      })
-    }
-  }
-  if(directed == TRUE)
-  {
-    for(cluster in 1:K)
-    {
-      edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
-      {
-        sum(adj[x, all.clusters[[cluster]]]) + sum(adj[all.clusters[[cluster]], x])
-      })
-    }
-  }
-  
-  return(edge.counts.matrix)
-}
-#CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes, directed = FALSE)
+#' #****************************************************
+#' #'  Create global matrix of edge counts between every node and every cluster
+#' #' @param all.clusters all current clusters [list of vectors]
+#' #' @param num.nodes number of nodes [scalar]
+#' #' @param directed whether network is directed or not [boolean]
+#' #' @return edge counts [matrix: dim = no. nodes x no. clusters]
+#' CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters <- function(all.clusters, num.nodes, 
+#'                                                                    directed)
+#' {
+#'   K <- length(all.clusters)
+#'   edge.counts.matrix <- Matrix(rep(0, num.nodes*K), c(num.nodes, K))
+#'   
+#'   # # loop through all nodes and all clusters
+#'   # for(node in 1:num.nodes)
+#'   # {
+#'   #   for(cluster in 1:K)
+#'   #   {
+#'   #     # if network undirected
+#'   #     if(directed == FALSE)
+#'   #     {
+#'   #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
+#'   #     }
+#'   #     
+#'   #     # if network directed
+#'   #     if(directed == TRUE)
+#'   #     {
+#'   #       edge.counts.matrix[node, cluster] <- sum(adj[node, all.clusters[[cluster]]]) + 
+#'   #                                             sum(adj[all.clusters[[cluster]], node])
+#'   #     }
+#'   #   }
+#'   # }
+#'   
+#'   if(directed == FALSE)
+#'   {
+#'     for(cluster in 1:K)
+#'     {
+#'       edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
+#'       {
+#'         sum(adj[x, all.clusters[[cluster]]])
+#'       })
+#'     }
+#'   }
+#'   if(directed == TRUE)
+#'   {
+#'     for(cluster in 1:K)
+#'     {
+#'       edge.counts.matrix[, cluster] <- sapply(1:num.nodes, function(x)
+#'       {
+#'         sum(adj[x, all.clusters[[cluster]]]) + sum(adj[all.clusters[[cluster]], x])
+#'       })
+#'     }
+#'   }
+#'   
+#'   return(edge.counts.matrix)
+#' }
+#' #CreateGlobalMatrixEdgeCountsBetweenAllNodesAndClusters(all.clusters, num.nodes, directed = FALSE)
 
-#****************************************************
-#'  Create global matrix of edge counts between clusters
-#' @param all.clusters all current clusters [list of vectors]
-#' @param nun.nodes number of nodes [scalar]
-#' @return edge counts [matrix: dim = no. clusters x no. clusters]
-CreateGlobalMatrixEdgeCountsBetweenClusters <- function(all.clusters, directed)
-{
-  K <- length(all.clusters)
-  
-  if(K == 1)
-  {
-    edge.counts.matrix <- diag(1)
-  }
-  else
-  {
-    edge.counts.matrix <- Matrix(rep(0, K*K), c(K, K)) 
-  }
-  
-  # loop through all clusters
-  for(cluster.row in 1:K)
-  {
-    for(cluster.column in 1:K)
-    {
-      if(directed == FALSE)
-      {
-        edge.counts.matrix[cluster.row, cluster.column] <- 
-          sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
-      }
-      if(directed == TRUE)
-      {
-        edge.counts.matrix[cluster.row, cluster.column] <- 
-          sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) +
-          sum(adj[all.clusters[[cluster.column]], all.clusters[[cluster.row]]]) 
-      }
-    }
-  }
-  return(edge.counts.matrix)
-}
-#CreateGlobalMatrixEdgeCountsBetweenClusters(all.clusters, directed)
+#' #****************************************************
+#' #'  Create global matrix of edge counts between clusters
+#' #' @param all.clusters all current clusters [list of vectors]
+#' #' @param nun.nodes number of nodes [scalar]
+#' #' @return edge counts [matrix: dim = no. clusters x no. clusters]
+#' CreateGlobalMatrixEdgeCountsBetweenClusters <- function(all.clusters, directed)
+#' {
+#'   K <- length(all.clusters)
+#'   
+#'   if(K == 1)
+#'   {
+#'     edge.counts.matrix <- diag(1)
+#'   }
+#'   else
+#'   {
+#'     edge.counts.matrix <- Matrix(rep(0, K*K), c(K, K)) 
+#'   }
+#'   
+#'   # loop through all clusters
+#'   for(cluster.row in 1:K)
+#'   {
+#'     for(cluster.column in 1:K)
+#'     {
+#'       if(directed == FALSE)
+#'       {
+#'         edge.counts.matrix[cluster.row, cluster.column] <- 
+#'           sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
+#'       }
+#'       if(directed == TRUE)
+#'       {
+#'         edge.counts.matrix[cluster.row, cluster.column] <- 
+#'           sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) +
+#'           sum(adj[all.clusters[[cluster.column]], all.clusters[[cluster.row]]]) 
+#'       }
+#'     }
+#'   }
+#'   return(edge.counts.matrix)
+#' }
+#' #CreateGlobalMatrixEdgeCountsBetweenClusters(all.clusters, directed)
 
 
 #****************************************************
@@ -1219,26 +1476,53 @@ CreateGlobalMatrixEdgeCountsBetweenClusters <- function(all.clusters, directed)
 #'  
 #' @param non.c.bar clusters that do not contain the anchors [list]
 #' @param N number of particles [scalar]
+#' @param directed whether network is directed or not [boolean]
 #' @return edge counts [list of vectors]
-CreateGlobalRunningTotalEdgeCountList <- function(non.c.bar, N)
+CreateGlobalRunningTotalEdgeCountList <- function(non.c.bar, N, directed)
 {
-  # IF no non.c.bar clusters
-  if(length(non.c.bar) == 0)
+  m <- length(non.c.bar)
+  
+  if(directed == FALSE)
   {
-    edge.count.vector <- rep(0, 3)
+    # IF no non.c.bar clusters
+    if(m == 0)
+    {
+      edge.count.vector <- rep(0, 3)
+    }
+    
+    # IF at least 1 non.c.bar cluster
+    if(m > 0)
+    {
+      edge.count.vector <- rep(0, 3 + (2*m))
+    }
+    
+    previous.edges.list <- lapply(1:N, list)
+    previous.edges.list <- lapply(previous.edges.list, function(x)
+    {
+      x <- edge.count.vector 
+    })
   }
   
-  # IF at least 1 non.c.bar cluster
-  if(length(non.c.bar) > 0)
+  if(directed == TRUE)
   {
-    edge.count.vector <- rep(0, 3 + (2 * length(non.c.bar)))
+    # IF no non.c.bar clusters
+    if(m == 0)
+    {
+      edge.count.vector <- rep(0, 4)
+    }
+    
+    # IF at least 1 non.c.bar cluster
+    if(m > 0)
+    {
+      edge.count.vector <- rep(0, 4 + (4*m))
+    }
+    
+    previous.edges.list <- lapply(1:N, list)
+    previous.edges.list <- lapply(previous.edges.list, function(x)
+    {
+      x <- edge.count.vector 
+    })
   }
-  
-  previous.edges.list <- lapply(1:N, list)
-  previous.edges.list <- lapply(previous.edges.list, function(x)
-  {
-    x <- edge.count.vector 
-  })
   
   return(previous.edges.list)
 }  
@@ -1316,11 +1600,11 @@ AncestorSampling <- function(sigma, s, particle, log.previous.unnormalised.weigh
 # Update NxK matrix after PGSM iteration (for undirected network)
 #' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
 #' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
-#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' @param previous.matrices edge count and max count matrices from previous iteration
 #' - (either from Gibbs or PGSMs) [list of matrices]
 #' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
-#' @return Updated NxK matrix 
-PGSMUpdateNxKMatrixUndirected <- function(c.bar, updated.c.bar, previous.matrices, 
+#' @return Updated NxK matrix
+PGSMUpdateNxKMatrixUndirected <- function(c.bar, updated.c.bar, previous.matrices,
                                           c.bar.cluster.indices)
 {
   # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
@@ -1328,57 +1612,157 @@ PGSMUpdateNxKMatrixUndirected <- function(c.bar, updated.c.bar, previous.matrice
   {
     return(previous.matrices)
   }
-  
+
   prev.mat <- previous.matrices$nxK.edge.counts
-  
+
   # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  # -- index(updated.c.bar1) = index(c.bar), index(updated.c.bar2) = K+1
   if(length(c.bar) == 1 && length(updated.c.bar) == 2)
   {
     # extend matrix by adding K+1th column
     new.mat <- cbind(prev.mat, rep(0, dim(prev.mat)[1]))
-    
+
     # update kth column (c.bar column)
-    new.mat[, c.bar.cluster.indices] <- 
-      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])})       
-    
+    new.mat[, c.bar.cluster.indices] <-
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])})
+
     # update K+1th column
-    new.mat[, dim(new.mat)[2]] <- 
-      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])})  
-                                               
+    new.mat[, dim(new.mat)[2]] <-
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])})
+
   }
-  
+
   # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  # -- index(updated.c.bar) = index(c.bar1), delete index(c.bar2)
   if(length(c.bar) == 2 && length(updated.c.bar) == 1)
   {
     # add values of highest index column to values of lowest index column
     new.mat <- prev.mat
-    new.mat[, c.bar.cluster.indices[1]] <- 
+    new.mat[, c.bar.cluster.indices[1]] <-
       prev.mat[, c.bar.cluster.indices[1]] + prev.mat[, c.bar.cluster.indices[2]]
-    
+
     # delete highest indexed column
     new.mat <- new.mat[, -c.bar.cluster.indices[2]]
-    
+
     # If now left with only 1 cluster overall, maintain sparse matrix forms rather than scalars
     if(is.null(dim(new.mat)))
     {
       new.mat <- sparseMatrix(1:num.nodes, rep(1, num.nodes), x = new.mat)
     }
   }
-  
+
   # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  # -- indices of both clusters remain the same
   if(length(c.bar) == 2 && length(updated.c.bar) == 2)
   {
     # update lowest indexed column
     new.mat <- prev.mat
-    new.mat[, c.bar.cluster.indices[1]] <- 
-      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])}) 
-      
+    new.mat[, c.bar.cluster.indices[1]] <-
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])})
+
     # update highest indexed column
-    new.mat[, c.bar.cluster.indices[2]] <- 
-      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])}) 
+    new.mat[, c.bar.cluster.indices[2]] <-
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])})
+  }
+
+  previous.matrices$nxK.edge.counts <- new.mat
+  return(previous.matrices)
+}
+
+#****************************************************
+# Update NxK matrix after PGSM iteration (for directed network)
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs) [list of matrices]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @return Updated NxK matrix 
+PGSMUpdateNxKMatrixDirected <- function(c.bar, updated.c.bar, previous.matrices, 
+                                        c.bar.cluster.indices)
+{
+  # Directed: 2 nxK matrices required: "to" and from" 
+  # "to" = "from nodes TO CLUSTERS" : notation "new.counts.to"
+  # "from" = "FROM CLUSTERS to nodes" : notation "new.counts.from"
+  
+  # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 1)
+  {
+    return(previous.matrices)
   }
   
-  previous.matrices$nxK.edge.counts <- new.mat
+  prev.counts.to <- previous.matrices$nxK.edge.counts$edge.counts.to
+  prev.counts.from <- previous.matrices$nxK.edge.counts$edge.counts.from
+  
+  # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  # -- index(updated.c.bar1) = index(c.bar), index(updated.c.bar2) = K+1
+  if(length(c.bar) == 1 && length(updated.c.bar) == 2)
+  {
+    # extend matrices by adding K+1th column
+    new.counts.to <- cbind(prev.counts.to, rep(0, dim(prev.counts.to)[1]))
+    new.counts.from <- cbind(prev.counts.from, rep(0, dim(prev.counts.from)[1]))
+    
+    # update kth columns (c.bar columns)
+    new.counts.to[, c.bar.cluster.indices] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])})    
+    new.counts.from[, c.bar.cluster.indices] <- 
+      sapply(1:num.nodes, function(x){sum(adj[updated.c.bar[[1]], x])}) 
+    
+    # update K+1th column
+    new.counts.to[, dim(new.counts.to)[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])}) 
+    new.counts.from[, dim(new.counts.from)[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[updated.c.bar[[2]], x])}) 
+  }
+  
+  # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  # -- index(updated.c.bar) = index(c.bar1), delete index(c.bar2)
+  if(length(c.bar) == 2 && length(updated.c.bar) == 1)
+  {
+    # add values of highest index column to values of lowest index column
+    new.counts.to <- prev.counts.to 
+    new.counts.from <- prev.counts.from
+    
+    new.counts.to[, c.bar.cluster.indices[1]] <- 
+      prev.counts.to[, c.bar.cluster.indices[1]] + prev.counts.to[, c.bar.cluster.indices[2]]
+    new.counts.from[, c.bar.cluster.indices[1]] <- 
+      prev.counts.from[, c.bar.cluster.indices[1]] + prev.counts.from[, c.bar.cluster.indices[2]]
+    
+    # delete highest indexed column of each matrix
+    new.counts.to <- new.counts.to[, -c.bar.cluster.indices[2]]
+    new.counts.from <- new.counts.from[, -c.bar.cluster.indices[2]]
+    
+    # If now left with only 1 cluster overall, maintain sparse matrix forms rather than scalars
+    if(is.null(dim(new.counts.to)))
+    {
+      new.counts.to <- sparseMatrix(1:num.nodes, rep(1, num.nodes), x = new.counts.to)
+      new.counts.from <- sparseMatrix(1:num.nodes, rep(1, num.nodes), x = new.counts.from)
+    }
+  }
+  
+  # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  # -- indices of both clusters remain the same
+  if(length(c.bar) == 2 && length(updated.c.bar) == 2)
+  {
+    # update lowest indexed column
+    new.counts.to <- prev.counts.to 
+    new.counts.from <- prev.counts.from
+
+    new.counts.to[, c.bar.cluster.indices[1]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[1]]])}) 
+    new.counts.from[, c.bar.cluster.indices[1]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[updated.c.bar[[1]], x])}) 
+    
+    # update highest indexed column
+    new.counts.to[, c.bar.cluster.indices[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[x, updated.c.bar[[2]]])}) 
+    new.counts.from[, c.bar.cluster.indices[2]] <- 
+      sapply(1:num.nodes, function(x){sum(adj[updated.c.bar[[2]], x])}) 
+  }
+  
+  # update previous matrices
+  previous.matrices$nxK.edge.counts$edge.counts.to <- new.counts.to
+  previous.matrices$nxK.edge.counts$edge.counts.from <- new.counts.from
+
   return(previous.matrices)
 }
 
@@ -1387,17 +1771,183 @@ PGSMUpdateNxKMatrixUndirected <- function(c.bar, updated.c.bar, previous.matrice
 #' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
 #' @param non.c.bar clusters not in c.bar [list of vectors]
 #' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
-#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' @param previous.matrices edge count and max count matrices from previous iteration
 #' - (either from Gibbs or PGSMs) [list of matrices]
 #' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
 #' @param chosen.particle.index index of the particle chosen from PGSM iteration [scalar]
 #' @return Updated KxK edge count & max count matrices as part of previous.matrices list
-PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, previous.matrices,
                                             c.bar.cluster.indices, chosen.particle.index)
 {
   # edge.counts.vec & max.counts.vec take the following (2 clusters in c.bar) form:
   # c(WithinCbar1, WithinCbar2, BetweenCbar, BetweenCbar1NonCbar1, BetweenCbar1NonCbar2, ...
   #   BetweenCbar2NonCbar1, BetweenCbar2NonCbar2, ...)
+
+  # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
+  if(length(c.bar) == 1 && length(updated.c.bar) == 1)
+  {
+    return(previous.matrices)
+  }
+
+  # set up matrices
+  new.edge.counts <- prev.edge.counts <- previous.matrices$KxK.edge.counts
+  new.max.counts <- prev.max.counts <- previous.matrices$KxK.max.counts
+  edge.counts.vec <- global.running.total.edge.counts[[chosen.particle.index]]
+  max.counts.vec <- global.running.total.max.counts[[chosen.particle.index]]
+  m <- length(non.c.bar)
+
+  # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  # -- index(updated.c.bar1) = index(c.bar), index(updated.c.bar2) = K+1
+  if(length(c.bar) == 1 && length(updated.c.bar) == 2)
+  {
+    # extend matrices by adding K+1th row and column
+    new.edge.counts <- ExtendKxKMatrix(new.edge.counts, K = dim(new.edge.counts)[1])
+    new.max.counts <- ExtendKxKMatrix(new.max.counts, K = dim(new.max.counts)[1])
+
+    # update "within-cluster" counts (type 1)
+    K <- dim(new.edge.counts)[1] # the new "K+1"
+    new.edge.counts[c.bar.cluster.indices, c.bar.cluster.indices] <- edge.counts.vec[1]
+    new.edge.counts[K, K] <- edge.counts.vec[2]
+
+    new.max.counts[c.bar.cluster.indices, c.bar.cluster.indices] <- max.counts.vec[1]
+    new.max.counts[K, K] <- max.counts.vec[2]
+
+    # update "between c.bar cluster" counts (type 2)
+    new.edge.counts[c.bar.cluster.indices, K] <- edge.counts.vec[3]
+    new.max.counts[c.bar.cluster.indices, K] <- max.counts.vec[3]
+
+    # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)
+    {
+      indices.to.update <- global.non.c.bar.indices
+
+      new.edge.counts[indices.to.update, c.bar.cluster.indices] <-
+        new.edge.counts[c.bar.cluster.indices, indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.edge.counts[indices.to.update, K] <- edge.counts.vec[(4+m):length(edge.counts.vec)]
+
+      new.max.counts[indices.to.update, c.bar.cluster.indices] <-
+        new.max.counts[c.bar.cluster.indices, indices.to.update] <- max.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, K] <- max.counts.vec[(4+m):length(max.counts.vec)]
+    }
+
+    # set lower triangular elements to zero
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+
+  # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  # -- index(updated.c.bar) = index(c.bar1), delete index(c.bar2)
+  if(length(c.bar) == 2 && length(updated.c.bar) == 1)
+  {
+    # update "within-cluster" counts (type 1)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- edge.counts.vec[1]
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- max.counts.vec[1]
+
+    # update lowest indexed (c.bar1) row/column for "between c.bar & non.c.bar cluster" (type 3)
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)
+    {
+      indices.to.update <- global.non.c.bar.indices
+
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <-
+        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <-
+        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
+    }
+
+    # delete highest indexed (c.bar2) row and column
+    new.edge.counts <- new.edge.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
+    new.max.counts <- new.max.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
+
+    # If now left with only 1 cluster overall, maintain sparse matrix forms rather than scalars
+    if(is.null(dim(new.edge.counts)))
+    {
+      new.edge.counts <- sparseMatrix(1, 1, x = new.edge.counts)
+      new.max.counts <- sparseMatrix(1, 1, x = new.max.counts)
+    }
+
+    # set lower triangular elements to zero
+    K <- dim(new.edge.counts)[1]
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+
+  # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  # -- indices of both clusters remain the same
+  if(length(c.bar) == 2 && length(updated.c.bar) == 2)
+  {
+    # update "within-cluster" counts (type 1)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- edge.counts.vec[1]
+    new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[2]] <- edge.counts.vec[2]
+
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- max.counts.vec[1]
+    new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[2]] <- max.counts.vec[2]
+
+    # update "between c.bar cluster" counts (type 2)
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
+      new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- edge.counts.vec[3]
+
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
+      new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- max.counts.vec[3]
+
+    # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
+    #if(!is.null(global.non.c.bar.indices))
+    if(length(global.non.c.bar.indices) > 0)
+    {
+      indices.to.update <- global.non.c.bar.indices
+
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <-
+        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[2]] <-
+        new.edge.counts[c.bar.cluster.indices[2], indices.to.update] <-
+        edge.counts.vec[(4+m):length(edge.counts.vec)]
+
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <-
+        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[2]] <-
+        new.max.counts[c.bar.cluster.indices[2], indices.to.update] <-
+        max.counts.vec[(4+m):length(max.counts.vec)]
+    }
+
+    # set lower triangular elements to zero
+    K <- dim(new.edge.counts)[1]
+    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
+      rep(0, K*(K+1)/2)
+  }
+
+  previous.matrices$KxK.edge.counts <- new.edge.counts
+  previous.matrices$KxK.max.counts <- new.max.counts
+
+  return(previous.matrices)
+}
+
+
+#****************************************************
+# Update KxK matrices after PGSM iteration (for directed network)
+#' @param c.bar c.bar (restricted clustering) prior to PGSM iteration [list of vectors]
+#' @param non.c.bar clusters not in c.bar [list of vectors]
+#' @param updated.c.bar c.bar after PGSM iteration [list of vectors]
+#' @param previous.matrices edge count and max count matrices from previous iteration 
+#' - (either from Gibbs or PGSMs) [list of matrices]
+#' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
+#' @param chosen.particle.index index of the particle chosen from PGSM iteration [scalar]
+#' @return Updated KxK edge count & max count matrices as part of previous.matrices list
+PGSMUpdateKxKMatricesDirected <- function(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+                                            c.bar.cluster.indices, chosen.particle.index)
+{
+  # Vectors edge.counts.vec & max.counts.vec take the following (2 clusters in c.bar) form 
+  # - i.e. they assume a split particle form:
+  # c(WithinCbar1, WithinCbar2, Cbar1ToCbar2, Cbar2ToCbar1,
+  #   Cbar1ToNonCbarClusters, NonCbarClustersToCbar1, Cbar2ToNonCbarClusters, NonCbarClustersToCbar2)
+  #
+  # where:
+  #   Cbar1ToNonCbarClusters = Cbar1ToNonCbar1, Cbar1ToNonCbar2, Cbar1ToNonCbar3, ... )
+  #   NonCbarClustersToCbar1 = NonCbar1ToCbar1, NonCbar2ToCbar1, NonCbar3ToCbar1, ... )
+  #   Cbar2ToNonCbarClusters = Cbar2ToNonCbar1, Cbar2ToNonCbar2, Cbar2ToNonCbar3, ... )
+  #   NonCbarClustersToCbar2 = NonCbar1ToCbar2, NonCbar2ToCbar2, NonCbar3ToCbar2, ... )  
+  #
+  # This function uses these vectors to update both the KxK edge count and max count matrices
   
   # Case 1: 1 cluster in c.bar, 1 cluster in updated.c.bar
   if(length(c.bar) == 1 && length(updated.c.bar) == 1)
@@ -1405,7 +1955,7 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
     return(previous.matrices)
   }
   
-  # set up matrices
+  # set up matrices (all the below are matrices unless otherwise specified)
   new.edge.counts <- prev.edge.counts <- previous.matrices$KxK.edge.counts
   new.max.counts <- prev.max.counts <- previous.matrices$KxK.max.counts
   edge.counts.vec <- global.running.total.edge.counts[[chosen.particle.index]]
@@ -1413,6 +1963,7 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
   m <- length(non.c.bar)
   
   # Case 2: 1 cluster in c.bar, 2 clusters in updated.c.bar
+  # -- index(updated.c.bar1) = index(c.bar), index(updated.c.bar2) = K+1
   if(length(c.bar) == 1 && length(updated.c.bar) == 2)
   {
     # extend matrices by adding K+1th row and column
@@ -1431,45 +1982,54 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
     new.edge.counts[c.bar.cluster.indices, K] <- edge.counts.vec[3]
     new.max.counts[c.bar.cluster.indices, K] <- max.counts.vec[3]
     
+    new.edge.counts[K, c.bar.cluster.indices] <- edge.counts.vec[4]
+    new.max.counts[K, c.bar.cluster.indices] <- max.counts.vec[4]
+    
     # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
-    #if(!is.null(global.non.c.bar.indices))
     if(length(global.non.c.bar.indices) > 0)  
     {
       indices.to.update <- global.non.c.bar.indices
+        
+      # updated c.bar1 to non.c.bar
+      new.edge.counts[c.bar.cluster.indices, indices.to.update] <- edge.counts.vec[5:(5+m-1)]
+      new.max.counts[c.bar.cluster.indices, indices.to.update] <- max.counts.vec[5:(5+m-1)]
       
-      new.edge.counts[indices.to.update, c.bar.cluster.indices] <- 
-        new.edge.counts[c.bar.cluster.indices, indices.to.update] <- edge.counts.vec[4:(3+m)]
-      new.edge.counts[indices.to.update, K] <- edge.counts.vec[(4+m):length(edge.counts.vec)]
+      # non.c.bar to updated c.bar1
+      new.edge.counts[indices.to.update, c.bar.cluster.indices] <- edge.counts.vec[(5+m):(5+(2*m)-1)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices] <- max.counts.vec[(5+m):(5+(2*m)-1)]
       
-      new.max.counts[indices.to.update, c.bar.cluster.indices] <- 
-        new.max.counts[c.bar.cluster.indices, indices.to.update] <- max.counts.vec[4:(3+m)]
-      new.max.counts[indices.to.update, K] <- max.counts.vec[(4+m):length(max.counts.vec)]
+      # updated c.bar2 to non.c.bar
+      new.edge.counts[K, indices.to.update] <- edge.counts.vec[(5+(2*m)):(5+(3*m)-1)]
+      new.max.counts[K, indices.to.update] <- max.counts.vec[(5+(2*m)):(5+(3*m)-1)]
+      
+      # non.c.bar to updated c.bar2
+      new.edge.counts[indices.to.update, K] <- edge.counts.vec[(5+(3*m)):(5+(4*m)-1)]
+      new.max.counts[indices.to.update, K] <- max.counts.vec[(5+(3*m)):(5+(4*m)-1)]
     }
-    
-    # set lower triangular elements to zero
-    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
-      rep(0, K*(K+1)/2)
   }
-
+  
   # Case 3: 2 clusters in c.bar, 1 cluster in updated.c.bar
+  # -- index(updated.c.bar) = index(c.bar1), delete index(c.bar2)
   if(length(c.bar) == 2 && length(updated.c.bar) == 1)
   {
     # update "within-cluster" counts (type 1)
     new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- edge.counts.vec[1]
     new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[1]] <- max.counts.vec[1]
-
+    
     # update lowest indexed (c.bar1) row/column for "between c.bar & non.c.bar cluster" (type 3)
-    #if(!is.null(global.non.c.bar.indices))
     if(length(global.non.c.bar.indices) > 0)  
     {
       indices.to.update <- global.non.c.bar.indices
       
-      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
-        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
-      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
-        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
+      # updated c.bar1 to non.c.bar
+      new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[5:(5+m-1)]
+      new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[5:(5+m-1)]
+      
+      # non.c.bar to updated c.bar1
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- edge.counts.vec[(5+m):(5+(2*m)-1)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- max.counts.vec[(5+m):(5+(2*m)-1)]
     }
-     
+    
     # delete highest indexed (c.bar2) row and column
     new.edge.counts <- new.edge.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
     new.max.counts <- new.max.counts[-c.bar.cluster.indices[2], -c.bar.cluster.indices[2]]
@@ -1480,14 +2040,10 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
       new.edge.counts <- sparseMatrix(1, 1, x = new.edge.counts)
       new.max.counts <- sparseMatrix(1, 1, x = new.max.counts)
     }
-    
-    # set lower triangular elements to zero
-    K <- dim(new.edge.counts)[1]
-    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
-      rep(0, K*(K+1)/2)
   }
-
+  
   # Case 4: 2 clusters in c.bar, 2 clusters in updated.c.bar
+  # -- indices of both clusters remain the same
   if(length(c.bar) == 2 && length(updated.c.bar) == 2)
   {
     # update "within-cluster" counts (type 1)
@@ -1498,35 +2054,33 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
     new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[2]] <- max.counts.vec[2]
     
     # update "between c.bar cluster" counts (type 2)
-    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
-      new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- edge.counts.vec[3]
+    new.edge.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <- edge.counts.vec[3]
+    new.edge.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- edge.counts.vec[4]
     
-    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <-
-      new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- max.counts.vec[3]
+    new.max.counts[c.bar.cluster.indices[1], c.bar.cluster.indices[2]] <- max.counts.vec[3]
+    new.max.counts[c.bar.cluster.indices[2], c.bar.cluster.indices[1]] <- max.counts.vec[4]
     
     # update "between c.bar & non.c.bar cluster" counts (type 3) [BOTH rows and columns]
-    #if(!is.null(global.non.c.bar.indices))
     if(length(global.non.c.bar.indices) > 0)  
     {
       indices.to.update <- global.non.c.bar.indices
       
-      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
-        new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[4:(3+m)]
-      new.edge.counts[indices.to.update, c.bar.cluster.indices[2]] <- 
-        new.edge.counts[c.bar.cluster.indices[2], indices.to.update] <- 
-        edge.counts.vec[(4+m):length(edge.counts.vec)]
+      # updated c.bar1 to non.c.bar
+      new.edge.counts[c.bar.cluster.indices[1], indices.to.update] <- edge.counts.vec[5:(5+m-1)]
+      new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[5:(5+m-1)]
       
-      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- 
-        new.max.counts[c.bar.cluster.indices[1], indices.to.update] <- max.counts.vec[4:(3+m)]
-      new.max.counts[indices.to.update, c.bar.cluster.indices[2]] <- 
-        new.max.counts[c.bar.cluster.indices[2], indices.to.update] <- 
-        max.counts.vec[(4+m):length(max.counts.vec)] 
+      # non.c.bar to updated c.bar1
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[1]] <- edge.counts.vec[(5+m):(5+(2*m)-1)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[1]] <- max.counts.vec[(5+m):(5+(2*m)-1)]
+      
+      # updated c.bar2 to non.c.bar
+      new.edge.counts[c.bar.cluster.indices[2], indices.to.update] <- edge.counts.vec[(5+(2*m)):(5+(3*m)-1)]
+      new.max.counts[c.bar.cluster.indices[2], indices.to.update] <- max.counts.vec[(5+(2*m)):(5+(3*m)-1)]
+      
+      # non.c.bar to updated c.bar2
+      new.edge.counts[indices.to.update, c.bar.cluster.indices[2]] <- edge.counts.vec[(5+(3*m)):(5+(4*m)-1)]
+      new.max.counts[indices.to.update, c.bar.cluster.indices[2]] <- max.counts.vec[(5+(3*m)):(5+(4*m)-1)]
     }
-
-    # set lower triangular elements to zero
-    K <- dim(new.edge.counts)[1]
-    new.edge.counts[lower.tri(new.edge.counts)] <- new.max.counts[lower.tri(new.max.counts)] <-
-      rep(0, K*(K+1)/2)
   }
   
   previous.matrices$KxK.edge.counts <- new.edge.counts
@@ -1543,20 +2097,34 @@ PGSMUpdateKxKMatricesUndirected <- function(c.bar, non.c.bar, updated.c.bar, pre
 #' - (either from Gibbs or PGSMs) [list of matrices]
 #' @param c.bar.cluster.indices indices of c.bar clusters in all.clusters [vector]
 #' @param non.c.bar clusters not in c.bar [list of vectors]
+#' @param directed whether netowrk is directed or not [boolean]
 #' @param all.clusters current clustering [list of vectors]
 #' @param chosen.particle.index index of the particle chosen from PGSM iteration [scalar]
 #' @param updated.clustering full updated clustering - update of all.clusters [list of vectors]
 #' @return Updated previous.matrices list
-PGSMUpdatePreviousMatricesUndirected <- function(c.bar, updated.c.bar, previous.matrices, 
-                                                 c.bar.cluster.indices, non.c.bar, 
-                                                 chosen.particle.index, updated.clustering)
+PGSMUpdatePreviousMatrices <- function(c.bar, updated.c.bar, previous.matrices, 
+                                       c.bar.cluster.indices, non.c.bar, directed,
+                                       chosen.particle.index, updated.clustering)
 {
-  previous.matrices <- 
-    PGSMUpdateNxKMatrixUndirected(c.bar, updated.c.bar, previous.matrices, c.bar.cluster.indices)
+  if(directed == FALSE)
+  {
+    previous.matrices <- 
+      PGSMUpdateNxKMatrixUndirected(c.bar, updated.c.bar, previous.matrices, c.bar.cluster.indices)
+    
+    previous.matrices <-
+      PGSMUpdateKxKMatricesUndirected(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+                                      c.bar.cluster.indices, chosen.particle.index)
+  }
   
-  previous.matrices <-
-    PGSMUpdateKxKMatricesUndirected(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
-                                    c.bar.cluster.indices, chosen.particle.index)
+  if(directed == TRUE)
+  {
+    previous.matrices <- 
+      PGSMUpdateNxKMatrixDirected(c.bar, updated.c.bar, previous.matrices, c.bar.cluster.indices)
+    
+    previous.matrices <-
+      PGSMUpdateKxKMatricesDirected(c.bar, non.c.bar, updated.c.bar, previous.matrices, 
+                                      c.bar.cluster.indices, chosen.particle.index)
+  }
   
   # update number of nodes in clusters using updated clustering
   previous.matrices$num.nodes.in.clusters <- sapply(updated.clustering, function(x){length(x)})
@@ -1647,8 +2215,8 @@ ParticleGibbsSplitMerge <- function(all.clusters, adj, s, s.bar, c.bar, non.c.ba
   as.flag <- FALSE; 
   
   # set up global variables: for running totals of edge counts and log gamma at t=2
-  global.running.total.edge.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
-  global.running.total.max.counts <<- CreateGlobalRunningTotalEdgeCountList(non.c.bar, N)
+  global.running.total.edge.counts <<- global.running.total.max.counts <<-
+   CreateGlobalRunningTotalEdgeCountList(non.c.bar, N, directed)
   global.log.gamma_2 <<- rep(0, N)
   
   # Run SMC
@@ -1805,9 +2373,17 @@ SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha,
   non.c.bar.cluster.indices <- which(cluster.indicators == FALSE)
   non.c.bar <- all.clusters[non.c.bar.cluster.indices]
   
-  # global variables
+  # set up global variables for nxK edge counts and non.c.bar cluster indices
+  if(directed == FALSE)
+  {
+    global.counts.between.nodes.clusters <<- previous.matrices$nxK.edge.counts
+  }
+  if(directed == TRUE)
+  {
+    global.counts.between.nodes.clusters <<- previous.matrices$nxK.edge.counts$edge.counts.to
+    global.counts.between.clusters.nodes <<- previous.matrices$nxK.edge.counts$edge.counts.from
+  }
   global.non.c.bar.indices <<- non.c.bar.cluster.indices
-  global.counts.between.nodes.clusters <<- previous.matrices$nxK.edge.counts
   
   # update reduced clustering (c.bar) with PGSM iteration
   PGSM.iteration <- ParticleGibbsSplitMerge(all.clusters, adj, s, s.bar, c.bar, non.c.bar, N, 
@@ -1823,9 +2399,9 @@ SplitMerge <- function(all.clusters, adj, N, resampling.threshold, alpha,
   global.num.clusters <<- length(updated.clustering)
   
   # update previous.matrices for next iteration of PGSM/Gibbs
-  previous.matrices <- PGSMUpdatePreviousMatricesUndirected(c.bar, updated.c.bar, previous.matrices, 
-                                                            c.bar.cluster.indices, non.c.bar, 
-                                                            chosen.particle.index, updated.clustering)
+  previous.matrices <- PGSMUpdatePreviousMatrices(c.bar, updated.c.bar, previous.matrices, 
+                                                  c.bar.cluster.indices, non.c.bar, directed,
+                                                  chosen.particle.index, updated.clustering)
   
   return(list("previous.matrices" = previous.matrices,
               "updated.clustering" = updated.clustering,
