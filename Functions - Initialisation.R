@@ -60,7 +60,7 @@ InitialNxKMatrices <- function(all.clusters, num.nodes, adj, directed)
       for(cluster in 1:K)
       {
         edge.counts.to[node, cluster] <- sum(adj[node, all.clusters[[cluster]]])
-        edge.counts.from[node, cluster] <- sum(adj[all.clusters[[cluster]]], node)
+        edge.counts.from[node, cluster] <- sum(adj[all.clusters[[cluster]], node])
       }
     }
     return(list("edge.counts.to" = edge.counts.to,

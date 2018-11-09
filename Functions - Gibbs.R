@@ -427,7 +427,7 @@ UpdateMatrices <- function(previous.matrices, node.index, cluster.from, cluster.
       "nxK.edge.counts" = 
       UpdateNxKMatricesDirected(prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to,
                                 prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from,
-                                node.index, cluster.from, cluster.to, num.nodes)))
+                                node.index, cluster.from, cluster.to, num.nodes, adj)))
   }
 }
 
