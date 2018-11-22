@@ -8,10 +8,10 @@ source("SourceScript.R"); set.seed(5)
 ## generate SBM
 num.nodes <- 20 # no. nodes
 num.clust <- 4  # no. clusters
-#pref.matrix = matrix(rbeta(num.clust^2, 1, 1),(c(num.clust, num.clust)))
-pref.matrix = forceSymmetric(matrix(rbeta(num.clust^2, 1, 1),(c(num.clust, num.clust))))
+pref.matrix = matrix(rbeta(num.clust^2, 1, 1),(c(num.clust, num.clust)))
+#pref.matrix = forceSymmetric(matrix(rbeta(num.clust^2, 1, 1),(c(num.clust, num.clust))))
 block.sizes <- rep(num.nodes/num.clust, num.clust) # no. nodes in each cluster (K length vector)
-directed <- FALSE
+directed <- TRUE
 sbm <- sample_sbm(num.nodes, pref.matrix, block.sizes, directed = directed, loops = FALSE); plot(sbm)
 #sbm <- sample_sbm(n = 20, pref.matrix = diag(5),
 #                  block.sizes = rep(4, 5), directed = directed, loops = FALSE); plot(sbm)
