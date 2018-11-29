@@ -1,0 +1,319 @@
+                                self.time self.pct total.time
+Functions - Gibbs.R#185             14.08     7.28      14.08
+Functions - Gibbs.R#313             13.86     7.17      13.86
+Functions - Gibbs.R#311             13.74     7.11      13.74
+Functions - Gibbs.R#186             13.42     6.94      13.42
+Functions - Gibbs.R#307             13.40     6.93      13.40
+Functions - Gibbs.R#183             13.38     6.92      13.38
+Functions - Gibbs.R#182             13.00     6.72      13.00
+Functions - Gibbs.R#309             12.96     6.70      12.96
+Functions - Gibbs.R#300              5.06     2.62       5.06
+Functions - Gibbs.R#164              4.62     2.39       4.62
+Functions - Gibbs.R#677              4.32     2.23       4.32
+Functions - Gibbs.R#174              4.22     2.18       4.22
+Functions - Gibbs.R#298              4.22     2.18       4.22
+Functions - Gibbs.R#558              4.18     2.16       4.18
+Functions - Gibbs.R#167              4.10     2.12       4.10
+Functions - Gibbs.R#675              4.08     2.11       4.08
+Functions - Gibbs.R#171              4.04     2.09       4.04
+Functions - Gibbs.R#292              4.02     2.08       4.02
+Functions - Gibbs.R#294              3.74     1.93       3.74
+Functions - Gibbs.R#557              3.64     1.88       3.64
+Functions - Gibbs.R#681              3.46     1.79       3.46
+Functions - Gibbs.R#561              3.44     1.78       3.44
+Functions - Gibbs.R#560              3.38     1.75       3.38
+Functions - Gibbs.R#680              3.24     1.68       3.24
+Functions - PGSMs.R#252              1.52     0.79       1.52
+Functions - PGSMs.R#244              1.46     0.76       1.46
+Functions - Gibbs.R#13               1.40     0.72       1.40
+Functions - Gibbs.R#544              1.08     0.56       1.08
+Functions - Gibbs.R#550              0.94     0.49       0.94
+Functions - Gibbs.R#667              0.86     0.44       0.86
+Functions - Gibbs.R#662              0.84     0.43       0.84
+Functions - Gibbs.R#546              0.80     0.41       0.80
+Functions - PGSMs.R#305              0.78     0.40       0.78
+Functions - Gibbs.R#664              0.76     0.39       0.76
+Functions - PGSMs.R#832              0.74     0.38       0.74
+Functions - Gibbs.R#961              0.70     0.36       0.70
+Functions - PGSMs.R#304              0.68     0.35       0.68
+Functions - Gibbs.R#668              0.66     0.34       0.66
+Functions - PGSMs.R#315              0.64     0.33       0.64
+Functions - Gibbs.R#549              0.60     0.31       0.60
+Functions - Gibbs.R#432              0.52     0.27       0.52
+Dashboard - Main.R#46                0.48     0.25       0.48
+Functions - Gibbs.R#959              0.46     0.24       1.22
+Functions - PGSMs.R#314              0.44     0.23       0.44
+Functions - Gibbs.R#937              0.34     0.18       0.38
+Dashboard - Main.R#45                0.34     0.18       0.34
+Functions - Gibbs.R#437              0.30     0.16       0.30
+Functions - PGSMs.R#413              0.26     0.13       0.26
+Functions - PGSMs.R#1835             0.22     0.11       0.22
+Functions - Gibbs.R#287              0.18     0.09       0.18
+Functions - Gibbs.R#799              0.14     0.07       0.14
+Functions - Gibbs.R#948              0.14     0.07       0.14
+Functions - Gibbs.R#949              0.12     0.06       0.12
+Functions - PGSMs.R#1109             0.12     0.06       0.12
+Functions - PGSMs.R#1829             0.12     0.06       0.12
+Functions - PGSMs.R#1837             0.10     0.05       0.10
+Functions - Gibbs.R#803              0.08     0.04       0.08
+Functions - PGSMs.R#1831             0.08     0.04       0.08
+Functions - PGSMs.R#2160             0.08     0.04       0.08
+Functions - Gibbs.R#963              0.06     0.03       0.06
+Functions - Initialisation.R#62      0.06     0.03       0.06
+Functions - PGSMs.R#107              0.06     0.03       0.06
+Functions - PGSMs.R#120              0.06     0.03       0.06
+Functions - PGSMs.R#583              0.06     0.03       0.06
+Functions - Gibbs.R#442              0.04     0.02     142.14
+Functions - PGSMs.R#1420             0.04     0.02       7.92
+Functions - PGSMs.R#1159             0.04     0.02       6.84
+Functions - PGSMs.R#566              0.04     0.02       3.04
+Functions - PGSMs.R#585              0.04     0.02       0.38
+Functions - PGSMs.R#1173             0.04     0.02       0.06
+Dashboard - Main.R#15                0.04     0.02       0.04
+Functions - Gibbs.R#1200             0.04     0.02       0.04
+Functions - Gibbs.R#1284             0.04     0.02       0.04
+Functions - Gibbs.R#1322             0.04     0.02       0.04
+Functions - Gibbs.R#178              0.04     0.02       0.04
+Functions - Gibbs.R#657              0.04     0.02       0.04
+Functions - Gibbs.R#939              0.04     0.02       0.04
+Functions - PGSMs.R#118              0.04     0.02       0.04
+Functions - PGSMs.R#1204             0.04     0.02       0.04
+Functions - PGSMs.R#125              0.04     0.02       0.04
+Functions - PGSMs.R#1336             0.04     0.02       0.04
+Functions - PGSMs.R#1371             0.04     0.02       0.04
+Functions - PGSMs.R#1786             0.04     0.02       0.04
+Functions - PGSMs.R#2129             0.04     0.02       0.04
+Functions - PGSMs.R#2131             0.04     0.02       0.04
+Functions - PGSMs.R#2135             0.04     0.02       0.04
+Functions - PGSMs.R#2136             0.04     0.02       0.04
+Functions - PGSMs.R#2138             0.04     0.02       0.04
+Functions - PGSMs.R#2147             0.04     0.02       0.04
+Functions - PGSMs.R#2148             0.04     0.02       0.04
+Functions - PGSMs.R#2151             0.04     0.02       0.04
+Functions - PGSMs.R#2152             0.04     0.02       0.04
+Functions - PGSMs.R#307              0.04     0.02       0.04
+Functions - Gibbs.R#1295             0.02     0.01      37.98
+Functions - PGSMs.R#2339             0.02     0.01       8.00
+Functions - PGSMs.R#750              0.02     0.01       6.26
+Functions - PGSMs.R#626              0.02     0.01       6.16
+Functions - PGSMs.R#1234             0.02     0.01       3.40
+Functions - PGSMs.R#1209             0.02     0.01       3.32
+Functions - PGSMs.R#573              0.02     0.01       2.60
+Functions - Gibbs.R#538              0.02     0.01       0.90
+Functions - PGSMs.R#1290             0.02     0.01       0.70
+Functions - PGSMs.R#1828             0.02     0.01       0.14
+Functions - Gibbs.R#1260             0.02     0.01       0.04
+Dashboard - Main.R#81                0.02     0.01       0.02
+Functions - Gibbs.R#1219             0.02     0.01       0.02
+Functions - Gibbs.R#1256             0.02     0.01       0.02
+Functions - Gibbs.R#1308             0.02     0.01       0.02
+Functions - Gibbs.R#1321             0.02     0.01       0.02
+Functions - Gibbs.R#1325             0.02     0.01       0.02
+Functions - Gibbs.R#1329             0.02     0.01       0.02
+Functions - Gibbs.R#1330             0.02     0.01       0.02
+Functions - Gibbs.R#305              0.02     0.01       0.02
+Functions - Gibbs.R#553              0.02     0.01       0.02
+Functions - Gibbs.R#838              0.02     0.01       0.02
+Functions - Gibbs.R#945              0.02     0.01       0.02
+Functions - PGSMs.R#1163             0.02     0.01       0.02
+Functions - PGSMs.R#1176             0.02     0.01       0.02
+Functions - PGSMs.R#122              0.02     0.01       0.02
+Functions - PGSMs.R#127              0.02     0.01       0.02
+Functions - PGSMs.R#1297             0.02     0.01       0.02
+Functions - PGSMs.R#132              0.02     0.01       0.02
+Functions - PGSMs.R#1354             0.02     0.01       0.02
+Functions - PGSMs.R#1375             0.02     0.01       0.02
+Functions - PGSMs.R#1376             0.02     0.01       0.02
+Functions - PGSMs.R#1424             0.02     0.01       0.02
+Functions - PGSMs.R#1441             0.02     0.01       0.02
+Functions - PGSMs.R#1446             0.02     0.01       0.02
+Functions - PGSMs.R#1789             0.02     0.01       0.02
+Functions - PGSMs.R#2081             0.02     0.01       0.02
+Functions - PGSMs.R#2132             0.02     0.01       0.02
+Functions - PGSMs.R#2139             0.02     0.01       0.02
+Functions - PGSMs.R#2155             0.02     0.01       0.02
+Functions - PGSMs.R#2156             0.02     0.01       0.02
+Functions - PGSMs.R#2165             0.02     0.01       0.02
+Functions - PGSMs.R#23               0.02     0.01       0.02
+Functions - PGSMs.R#242              0.02     0.01       0.02
+Functions - PGSMs.R#2502             0.02     0.01       0.02
+Functions - PGSMs.R#2512             0.02     0.01       0.02
+Functions - PGSMs.R#2520             0.02     0.01       0.02
+Functions - PGSMs.R#429              0.02     0.01       0.02
+Functions - PGSMs.R#451              0.02     0.01       0.02
+Functions - PGSMs.R#453              0.02     0.01       0.02
+Functions - PGSMs.R#461              0.02     0.01       0.02
+Functions - PGSMs.R#590              0.02     0.01       0.02
+Functions - PGSMs.R#591              0.02     0.01       0.02
+Functions - PGSMs.R#599              0.02     0.01       0.02
+Functions - PGSMs.R#624              0.02     0.01       0.02
+Functions - PGSMs.R#629              0.02     0.01       0.02
+Functions - PGSMs.R#630              0.02     0.01       0.02
+Functions - PGSMs.R#633              0.02     0.01       0.02
+Functions - PGSMs.R#781              0.02     0.01       0.02
+Functions - PGSMs.R#824              0.02     0.01       0.02
+Functions - PGSMs.R#837              0.02     0.01       0.02
+Functions - PGSMs.R#97               0.02     0.01       0.02
+SourceScript.R#14                    0.02     0.01       0.02
+SourceScript.R#15                    0.02     0.01       0.02
+SourceScript.R#16                    0.02     0.01       0.02
+                                total.pct
+Functions - Gibbs.R#185              7.28
+Functions - Gibbs.R#313              7.17
+Functions - Gibbs.R#311              7.11
+Functions - Gibbs.R#186              6.94
+Functions - Gibbs.R#307              6.93
+Functions - Gibbs.R#183              6.92
+Functions - Gibbs.R#182              6.72
+Functions - Gibbs.R#309              6.70
+Functions - Gibbs.R#300              2.62
+Functions - Gibbs.R#164              2.39
+Functions - Gibbs.R#677              2.23
+Functions - Gibbs.R#174              2.18
+Functions - Gibbs.R#298              2.18
+Functions - Gibbs.R#558              2.16
+Functions - Gibbs.R#167              2.12
+Functions - Gibbs.R#675              2.11
+Functions - Gibbs.R#171              2.09
+Functions - Gibbs.R#292              2.08
+Functions - Gibbs.R#294              1.93
+Functions - Gibbs.R#557              1.88
+Functions - Gibbs.R#681              1.79
+Functions - Gibbs.R#561              1.78
+Functions - Gibbs.R#560              1.75
+Functions - Gibbs.R#680              1.68
+Functions - PGSMs.R#252              0.79
+Functions - PGSMs.R#244              0.76
+Functions - Gibbs.R#13               0.72
+Functions - Gibbs.R#544              0.56
+Functions - Gibbs.R#550              0.49
+Functions - Gibbs.R#667              0.44
+Functions - Gibbs.R#662              0.43
+Functions - Gibbs.R#546              0.41
+Functions - PGSMs.R#305              0.40
+Functions - Gibbs.R#664              0.39
+Functions - PGSMs.R#832              0.38
+Functions - Gibbs.R#961              0.36
+Functions - PGSMs.R#304              0.35
+Functions - Gibbs.R#668              0.34
+Functions - PGSMs.R#315              0.33
+Functions - Gibbs.R#549              0.31
+Functions - Gibbs.R#432              0.27
+Dashboard - Main.R#46                0.25
+Functions - Gibbs.R#959              0.63
+Functions - PGSMs.R#314              0.23
+Functions - Gibbs.R#937              0.20
+Dashboard - Main.R#45                0.18
+Functions - Gibbs.R#437              0.16
+Functions - PGSMs.R#413              0.13
+Functions - PGSMs.R#1835             0.11
+Functions - Gibbs.R#287              0.09
+Functions - Gibbs.R#799              0.07
+Functions - Gibbs.R#948              0.07
+Functions - Gibbs.R#949              0.06
+Functions - PGSMs.R#1109             0.06
+Functions - PGSMs.R#1829             0.06
+Functions - PGSMs.R#1837             0.05
+Functions - Gibbs.R#803              0.04
+Functions - PGSMs.R#1831             0.04
+Functions - PGSMs.R#2160             0.04
+Functions - Gibbs.R#963              0.03
+Functions - Initialisation.R#62      0.03
+Functions - PGSMs.R#107              0.03
+Functions - PGSMs.R#120              0.03
+Functions - PGSMs.R#583              0.03
+Functions - Gibbs.R#442             73.52
+Functions - PGSMs.R#1420             4.10
+Functions - PGSMs.R#1159             3.54
+Functions - PGSMs.R#566              1.57
+Functions - PGSMs.R#585              0.20
+Functions - PGSMs.R#1173             0.03
+Dashboard - Main.R#15                0.02
+Functions - Gibbs.R#1200             0.02
+Functions - Gibbs.R#1284             0.02
+Functions - Gibbs.R#1322             0.02
+Functions - Gibbs.R#178              0.02
+Functions - Gibbs.R#657              0.02
+Functions - Gibbs.R#939              0.02
+Functions - PGSMs.R#118              0.02
+Functions - PGSMs.R#1204             0.02
+Functions - PGSMs.R#125              0.02
+Functions - PGSMs.R#1336             0.02
+Functions - PGSMs.R#1371             0.02
+Functions - PGSMs.R#1786             0.02
+Functions - PGSMs.R#2129             0.02
+Functions - PGSMs.R#2131             0.02
+Functions - PGSMs.R#2135             0.02
+Functions - PGSMs.R#2136             0.02
+Functions - PGSMs.R#2138             0.02
+Functions - PGSMs.R#2147             0.02
+Functions - PGSMs.R#2148             0.02
+Functions - PGSMs.R#2151             0.02
+Functions - PGSMs.R#2152             0.02
+Functions - PGSMs.R#307              0.02
+Functions - Gibbs.R#1295            19.64
+Functions - PGSMs.R#2339             4.14
+Functions - PGSMs.R#750              3.24
+Functions - PGSMs.R#626              3.19
+Functions - PGSMs.R#1234             1.76
+Functions - PGSMs.R#1209             1.72
+Functions - PGSMs.R#573              1.34
+Functions - Gibbs.R#538              0.47
+Functions - PGSMs.R#1290             0.36
+Functions - PGSMs.R#1828             0.07
+Functions - Gibbs.R#1260             0.02
+Dashboard - Main.R#81                0.01
+Functions - Gibbs.R#1219             0.01
+Functions - Gibbs.R#1256             0.01
+Functions - Gibbs.R#1308             0.01
+Functions - Gibbs.R#1321             0.01
+Functions - Gibbs.R#1325             0.01
+Functions - Gibbs.R#1329             0.01
+Functions - Gibbs.R#1330             0.01
+Functions - Gibbs.R#305              0.01
+Functions - Gibbs.R#553              0.01
+Functions - Gibbs.R#838              0.01
+Functions - Gibbs.R#945              0.01
+Functions - PGSMs.R#1163             0.01
+Functions - PGSMs.R#1176             0.01
+Functions - PGSMs.R#122              0.01
+Functions - PGSMs.R#127              0.01
+Functions - PGSMs.R#1297             0.01
+Functions - PGSMs.R#132              0.01
+Functions - PGSMs.R#1354             0.01
+Functions - PGSMs.R#1375             0.01
+Functions - PGSMs.R#1376             0.01
+Functions - PGSMs.R#1424             0.01
+Functions - PGSMs.R#1441             0.01
+Functions - PGSMs.R#1446             0.01
+Functions - PGSMs.R#1789             0.01
+Functions - PGSMs.R#2081             0.01
+Functions - PGSMs.R#2132             0.01
+Functions - PGSMs.R#2139             0.01
+Functions - PGSMs.R#2155             0.01
+Functions - PGSMs.R#2156             0.01
+Functions - PGSMs.R#2165             0.01
+Functions - PGSMs.R#23               0.01
+Functions - PGSMs.R#242              0.01
+Functions - PGSMs.R#2502             0.01
+Functions - PGSMs.R#2512             0.01
+Functions - PGSMs.R#2520             0.01
+Functions - PGSMs.R#429              0.01
+Functions - PGSMs.R#451              0.01
+Functions - PGSMs.R#453              0.01
+Functions - PGSMs.R#461              0.01
+Functions - PGSMs.R#590              0.01
+Functions - PGSMs.R#591              0.01
+Functions - PGSMs.R#599              0.01
+Functions - PGSMs.R#624              0.01
+Functions - PGSMs.R#629              0.01
+Functions - PGSMs.R#630              0.01
+Functions - PGSMs.R#633              0.01
+Functions - PGSMs.R#781              0.01
+Functions - PGSMs.R#824              0.01
+Functions - PGSMs.R#837              0.01
+Functions - PGSMs.R#97               0.01
+SourceScript.R#14                    0.01
+SourceScript.R#15                    0.01
+SourceScript.R#16                    0.01
+> 

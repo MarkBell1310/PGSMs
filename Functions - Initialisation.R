@@ -92,21 +92,21 @@ InitialKxKEdgeCountMatrix <- function(all.clusters, adj, directed)
   
   # calculate edge counts by looping through all clusters
   
-  # for(cluster.row in 1:K)
-  # {
-  #   for(cluster.column in 1:K)
-  #   {
-  #     edge.counts.matrix[cluster.row, cluster.column] <- 
-  #       sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]]) 
-  #   }
-  # }
-  for(cluster.column in 1:K)
+  for(cluster.row in 1:K)
   {
-    edge.counts.matrix[, cluster.column] <- sapply(1:K, function(x)
+    for(cluster.column in 1:K)
     {
-      sum(adj[all.clusters[[x]], all.clusters[[cluster.column]]]) 
-    })
+      edge.counts.matrix[cluster.row, cluster.column] <-
+        sum(adj[all.clusters[[cluster.row]], all.clusters[[cluster.column]]])
+    }
   }
+  # for(cluster.column in 1:K)
+  # {
+  #   edge.counts.matrix[, cluster.column] <- sapply(1:K, function(x)
+  #   {
+  #     sum(adj[all.clusters[[x]], all.clusters[[cluster.column]]]) 
+  #   })
+  # }
   
   # if undirected halve the diagonals and remove lower triangle
   if(directed == FALSE)
@@ -160,8 +160,8 @@ InitialKxKMaxCountMatrix <- function(all.clusters, num.nodes.in.clusters, direct
       # off-diagonal counts are same for undirected/directed network
       if(cluster.row != cluster.column)
       {
-        max.counts.matrix[cluster.row, cluster.column] <- 
-          num.nodes.in.clusters[cluster.row] * num.nodes.in.clusters[cluster.column]
+          max.counts.matrix[cluster.row, cluster.column] <- 
+            num.nodes.in.clusters[cluster.row] * num.nodes.in.clusters[cluster.column]
       }
       
       # diagonal counts are different for undirected/directed network

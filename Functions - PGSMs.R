@@ -159,20 +159,24 @@ MapClustersToAllocations <- function(sigma, c.bar)
   c2 <- c.bar[[2]]; len2 <- length(c2)
   particle <- rep(0, n); particle[1:2] <- c(1, 4)
   
-  for(t in 3:n)
+  if(n > 2)
   {
-    # if data point is in cluster 1, assign allocation decision #3
-    if(sigma[t] %in% c1) 
+    for(t in 3:n)
     {
-      particle[t] <- 3
-    }
-    
-    # if data point is in cluster 2, assign allocation decision #4
-    if(sigma[t] %in% c2) 
-    {
-      particle[t] <- 4
+      # if data point is in cluster 1, assign allocation decision #3
+      if(sigma[t] %in% c1) 
+      {
+        particle[t] <- 3
+      }
+      
+      # if data point is in cluster 2, assign allocation decision #4
+      if(sigma[t] %in% c2) 
+      {
+        particle[t] <- 4
+      }
     }
   }
+  
   return(particle)
 }
 # ## Test
@@ -881,8 +885,8 @@ LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.
   ## for Gibbs we need all the diagonals
   
   ## Counts within c.bar1 and c.bar2 require different treatment to other counts
-  ## For LDERGM, only the diagonals of KxK matrix have different betas - but for PGSMs,
-  ## we only need the first 2 diagonals - within c.bar1 and within c.bar2
+  ## For LDERGM, only the diagonals of KxK matrix have different betas - all off-diags are same
+  ## For PGSMs, we only need the first 2 diagonals - within c.bar1 and within c.bar2
 
   # calculate "c.bar.current": c.bar at time t
   c.bar.current <- MapAllocationsToClusters(sigma[1:t], particle, s)
@@ -905,6 +909,7 @@ LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.
   
   ## "Between cluster" terms of log-likelihood: (KxK off-diagonals) - are all the same for LDERGM
   # Sum the edge.counts & max.counts and include these as single "between cluster" term
+  # IF only 1 c.bar cluster
   if(length(c.bar.current) == 1)
   {
     # c.bar.current has only 1 cluster - so there may be no "between cluster" terms:
@@ -934,25 +939,29 @@ LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.
 
   ## "Within cluster" terms of log-likelihood: (KxK diagonals) - only have 2 terms for PGSMs
   # Use Laplace approximations to log marginal likelihood
-  if(length(c.bar.current[[1]]) == 1)
+  # IF only 1 node in c.bar1
+  if(length(c.bar.current[[1]]) == 1) 
   {
     log.likelihoods[1] <- 0 # only have prior, so log.likelihood = 0
   }
+  # IF more than 1 node in c.bar1
   else
   {
     log.likelihoods[1] <- 
       LaplaceApproxLogMarginalLikelihoodERGM(c.bar.current, c.bar.cluster.index = 1, 
                                              model.formula, directed)
   }
+  # IF we have 2 c.bar clusters, but only 1 node in c.bar2
   if(length(c.bar.current) == 2 && length(c.bar.current[[2]]) == 1)
   {
     log.likelihoods[2] <- 0 # only have prior, so log.likelihood = 0
   }
+  # IF we have 2 c.bar clusters, and more than 1 node in c.bar2
   if(length(c.bar.current) == 2 && length(c.bar.current[[2]]) > 1)
   {
     log.likelihoods[2] <- 
-      LaplaceApproxLogMarginalLikelihoodERGM(c.bar.current, c.bar.cluster.index = 2, 
-                                             model.formula, directed)
+      LaplaceApproxLogMarginalLikelihoodLDERGM(c.bar.current, c.bar.cluster.index = 2, 
+                                               model.formula, directed)
   }
 
   # prior for log.int.target
@@ -981,8 +990,8 @@ LDERGMLogIntermediateTarget <- function(sigma, s, particle, all.clusters, non.c.
 #' @param model.formula whether we want edges, triangles, kstars etc. for ERGM [formula]
 #' @param directed is network directed or not [boolean]
 #' @return maximum pseudolikelihood estimate [scalar]
-LaplaceApproxLogMarginalLikelihoodERGM <- function(c.bar.current, c.bar.cluster.index, 
-                                                   model.formula, directed)
+LaplaceApproxLogMarginalLikelihoodLDERGM <- function(c.bar.current, c.bar.cluster.index, 
+                                                     model.formula, directed)
 {
   # form a network from each cluster of c.bar.current
   network.cluster <- network(as.matrix(adj[c.bar.current[[c.bar.cluster.index]], 

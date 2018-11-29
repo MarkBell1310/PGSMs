@@ -52,8 +52,20 @@ RemoveClusterRowsColumns <- function(previous.matrices, cluster.from, num.nodes,
       sparseMatrix(1, 1, x = previous.matrices$KxK.edge.counts)
     previous.matrices$KxK.max.counts <- 
       sparseMatrix(1, 1, x = previous.matrices$KxK.max.counts)
-    previous.matrices$nxK.edge.counts <- 
-      sparseMatrix(1:num.nodes, rep(1, num.nodes), x = previous.matrices$nxK.edge.counts)
+    
+    # 1 nxK matrix for undirected and 2 nxK matrices for directed networks
+    if(directed == FALSE)
+    {
+      previous.matrices$nxK.edge.counts <- 
+        sparseMatrix(1:num.nodes, rep(1, num.nodes), x = previous.matrices$nxK.edge.counts)
+    }
+    if(directed == TRUE)
+    {
+      previous.matrices$nxK.edge.counts$edge.counts.to <- 
+        sparseMatrix(1:num.nodes, rep(1, num.nodes), x = previous.matrices$nxK.edge.counts$edge.counts.to)
+      previous.matrices$nxK.edge.counts$edge.counts.from <- 
+        sparseMatrix(1:num.nodes, rep(1, num.nodes), x = previous.matrices$nxK.edge.counts$edge.counts.from)
+    }
   }
   
   return(previous.matrices)
@@ -305,79 +317,79 @@ UpdateKxKMaxCountsMatrixDirected <- function(prev.max.counts.mat, cluster.from, 
 }
 
 
-#****************************************************
-#' Update nxK (node:cluster) matrix for undirected network
-#' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
-#' @param node.index index of node being moved [scalar]
-#' @param cluster.from index of cluster that node is moved from [scalar]
-#' @param cluster.to index of cluster that node is moved to [scalar]
-#' @param num.nodes number of nodes in network [scalar]
-#' @param adj adjacency matrix [matrix]
-#' @return Updated nxK matrix [matrix]
-# UpdateNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, cluster.to, 
+#' #****************************************************
+#' #' Update nxK (node:cluster) matrix for undirected network
+#' #' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
+#' #' @param node.index index of node being moved [scalar]
+#' #' @param cluster.from index of cluster that node is moved from [scalar]
+#' #' @param cluster.to index of cluster that node is moved to [scalar]
+#' #' @param num.nodes number of nodes in network [scalar]
+#' #' @param adj adjacency matrix [matrix]
+#' #' @return Updated nxK matrix [matrix]
+# UpdateNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, cluster.to,
 #                                       num.nodes, adj)
 # {
 #   ## Undirected: only 1 nxK matrix
 #   new.nxK.mat <- prev.nxK.mat
-#   
+# 
 #   # for(node in 1:num.nodes)
 #   # {
 #   #   # (1) update "from" column - for cluster that node has left
 #   #   new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
-#   #   
+#   #
 #   #   # (2) update "to" column - for cluster that node has joined
 #   #   new.nxK.mat[node, cluster.to] <- prev.nxK.mat[node, cluster.to] + adj[node, node.index]
 #   # }
-#   
+# 
 #   # (1) update "from" column - for cluster that node has left
 #   new.nxK.mat[, cluster.from] <- sapply(1:num.nodes, function(x)
 #   {
 #     prev.nxK.mat[x, cluster.from] - adj[x, node.index]
 #   })
-#   
+# 
 #   # (2) update "to" column - for cluster that node has joined
 #   new.nxK.mat[, cluster.to] <- sapply(1:num.nodes, function(x)
 #   {
 #     prev.nxK.mat[x, cluster.to] + adj[x, node.index]
 #   })
-#   
+# 
 #   return(new.nxK.mat)
 # }
 
-#****************************************************
-#' Update nxK (node:cluster) matrices for directed network
-#' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
-#' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
-#' @param node.index index of node being moved [scalar]
-#' @param cluster.from index of cluster that node is moved from [scalar]
-#' @param cluster.to index of cluster that node is moved to [scalar]
-#' @param num.nodes number of nodes in network [scalar]
-#' @param adj adjacency matrix [matrix]
-#' @return Updated nxK matrix [matrix]
-UpdateNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index,
-                                      cluster.from, cluster.to, num.nodes, adj)
-{
-  ## Directed: 2 nxK matrices
-  new.nxK.mat.to <- prev.nxK.mat.to
-  new.nxK.mat.from <- prev.nxK.mat.from
-
-  for(node in 1:num.nodes)
-  {
-    # (1) update "from" column of both matrices - for cluster that node has left
-    new.nxK.mat.to[node, cluster.from] <-
-      prev.nxK.mat.to[node, cluster.from] - adj[node, node.index]
-    new.nxK.mat.from[node, cluster.from] <-
-      prev.nxK.mat.from[node, cluster.from] - adj[node.index, node]
-
-    # (2) update "to" column of both matrices - for cluster that node has joined
-    new.nxK.mat.to[node, cluster.to] <-
-      prev.nxK.mat.to[node, cluster.to] + adj[node, node.index]
-    new.nxK.mat.from[node, cluster.to] <-
-      prev.nxK.mat.from[node, cluster.to] + adj[node.index, node]
-  }
-  return(list("edge.counts.to" = new.nxK.mat.to,
-              "edge.counts.from" = new.nxK.mat.from))
-}
+#' #****************************************************
+#' #' Update nxK (node:cluster) matrices for directed network
+#' #' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' #' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' #' @param node.index index of node being moved [scalar]
+#' #' @param cluster.from index of cluster that node is moved from [scalar]
+#' #' @param cluster.to index of cluster that node is moved to [scalar]
+#' #' @param num.nodes number of nodes in network [scalar]
+#' #' @param adj adjacency matrix [matrix]
+#' #' @return Updated nxK matrix [matrix]
+#' UpdateNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index,
+#'                                       cluster.from, cluster.to, num.nodes, adj)
+#' {
+#'   ## Directed: 2 nxK matrices
+#'   new.nxK.mat.to <- prev.nxK.mat.to
+#'   new.nxK.mat.from <- prev.nxK.mat.from
+#' 
+#'   for(node in 1:num.nodes)
+#'   {
+#'     # (1) update "from" column of both matrices - for cluster that node has left
+#'     new.nxK.mat.to[node, cluster.from] <-
+#'       prev.nxK.mat.to[node, cluster.from] - adj[node, node.index]
+#'     new.nxK.mat.from[node, cluster.from] <-
+#'       prev.nxK.mat.from[node, cluster.from] - adj[node.index, node]
+#' 
+#'     # (2) update "to" column of both matrices - for cluster that node has joined
+#'     new.nxK.mat.to[node, cluster.to] <-
+#'       prev.nxK.mat.to[node, cluster.to] + adj[node, node.index]
+#'     new.nxK.mat.from[node, cluster.to] <-
+#'       prev.nxK.mat.from[node, cluster.to] + adj[node.index, node]
+#'   }
+#'   return(list("edge.counts.to" = new.nxK.mat.to,
+#'               "edge.counts.from" = new.nxK.mat.from))
+#' }
 
 
 #****************************************************
@@ -417,15 +429,15 @@ UpdateMatrices <- function(previous.matrices, node.index, cluster.from, cluster.
   # Directed: update KxK edge counts, KxK max counts and both nxK matrices
   if(directed == TRUE)
   {
-    # edge.counts.to <- 
-    #   UpdateNxKMatrixDirectedTo(prev_nxK_mat_to = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.to), 
-    #                             node_index = node.index, cluster_from = cluster.from, 
-    #                             cluster_to = cluster.to, num_nodes = num.nodes, adj_mat = as.matrix(adj))
-    # 
-    # edge.counts.from <- 
-    #   UpdateNxKMatrixDirectedFrom(prev_nxK_mat_from = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.from), 
-    #                               node_index = node.index, cluster_from = cluster.from, 
-    #                              cluster_to = cluster.to, num_nodes = num.nodes, adj_mat = as.matrix(adj))
+    edge.counts.to <-
+      UpdateNxKMatrixDirectedTo(prev_nxK_mat_to = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.to),
+                                node_index = node.index, cluster_from = cluster.from,
+                                cluster_to = cluster.to, num_nodes = num.nodes, adj_mat = as.matrix(adj))
+
+    edge.counts.from <-
+      UpdateNxKMatrixDirectedFrom(prev_nxK_mat_from = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.from),
+                                  node_index = node.index, cluster_from = cluster.from,
+                                 cluster_to = cluster.to, num_nodes = num.nodes, adj_mat = as.matrix(adj))
     
     return(list(
       "KxK.edge.counts" = 
@@ -437,12 +449,13 @@ UpdateMatrices <- function(previous.matrices, node.index, cluster.from, cluster.
         UpdateKxKMaxCountsMatrixDirected(prev.max.counts.mat = previous.matrices$KxK.max.counts, 
                                          cluster.from, cluster.to, K, all.clusters),
       
-      # "nxK.edge.counts" = list("edge.counts.to" = edge.counts.to, 
-      #                          "edge.counts.from" = edge.counts.from)))
-      "nxK.edge.counts" =
-        UpdateNxKMatricesDirected(prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to,
-                                  prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from,
-                                  node.index, cluster.from, cluster.to, num.nodes, adj)))
+      "nxK.edge.counts" = list("edge.counts.to" = edge.counts.to,
+                               "edge.counts.from" = edge.counts.from)))
+      # R function:
+      # "nxK.edge.counts" =
+      #   UpdateNxKMatricesDirected(prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to,
+      #                             prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from,
+      #                             node.index, cluster.from, cluster.to, num.nodes, adj)))
   }
 }
 
@@ -675,77 +688,77 @@ UpdateExtendedKxKMaxCountsDirected <- function(prev.max.counts.mat, cluster.from
   return(new.max.counts.mat)
 }
 
-#****************************************************
-#' Update extended nxK (node:cluster) matrix for undirected network
-#' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
-#' @param node.index index of node being moved [scalar]
-#' @param cluster.from index of cluster that node is moved from [scalar]
-#' @param num.nodes number of nodes in network [scalar]
-#' @param adj adjacency matrix [matrix]
-#' @return Updated extended nx(K+1) matrix [matrix]
-# UpdateExtendedNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from, 
-#                                               num.nodes, adj, K)
-# {
-#   ## Undirected: only 1 nxK matrix - Extend matrix by adding K+1th column
-#   new.nxK.mat <- cbind(prev.nxK.mat, rep(0, num.nodes))
-#   cluster.to <- K+1
-#   
-#   # for(node in 1:num.nodes)
-#   # {
-#   #   # (1) update "from" column - for cluster that node has left
-#   #   new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
-#   #   
-#   #   # (2) update "to" column - for cluster that node has joined
-#   #   new.nxK.mat[node, cluster.to] <- adj[node, node.index]
-#   # }
-#   
-#   # (1) update "from" column - for cluster that node has left
-#   new.nxK.mat[, cluster.from] <- sapply(1:num.nodes, function(x)
-#   {
-#     prev.nxK.mat[x, cluster.from] - adj[x, node.index]
-#   })
-#   
-#   # (2) update "to" column - for cluster that node has joined
-#   new.nxK.mat[, cluster.to] <- sapply(1:num.nodes, function(x)
-#   {
-#     adj[x, node.index]
-#   })
-# 
-#   return(new.nxK.mat)
-# }
+#' #****************************************************
+#' #' Update extended nxK (node:cluster) matrix for undirected network
+#' #' @param prev.nxK.mat nxK matrix from previous Gibbs iteration [matrix]
+#' #' @param node.index index of node being moved [scalar]
+#' #' @param cluster.from index of cluster that node is moved from [scalar]
+#' #' @param num.nodes number of nodes in network [scalar]
+#' #' @param adj adjacency matrix [matrix]
+#' #' @return Updated extended nx(K+1) matrix [matrix]
+#' UpdateExtendedNxKMatrixUndirected <- function(prev.nxK.mat, node.index, cluster.from,
+#'                                               num.nodes, adj, K)
+#' {
+#'   ## Undirected: only 1 nxK matrix - Extend matrix by adding K+1th column
+#'   new.nxK.mat <- cbind(prev.nxK.mat, rep(0, num.nodes))
+#'   cluster.to <- K+1
+#' 
+#'   # for(node in 1:num.nodes)
+#'   # {
+#'   #   # (1) update "from" column - for cluster that node has left
+#'   #   new.nxK.mat[node, cluster.from] <- prev.nxK.mat[node, cluster.from] - adj[node, node.index]
+#'   #
+#'   #   # (2) update "to" column - for cluster that node has joined
+#'   #   new.nxK.mat[node, cluster.to] <- adj[node, node.index]
+#'   # }
+#' 
+#'   # (1) update "from" column - for cluster that node has left
+#'   new.nxK.mat[, cluster.from] <- sapply(1:num.nodes, function(x)
+#'   {
+#'     prev.nxK.mat[x, cluster.from] - adj[x, node.index]
+#'   })
+#' 
+#'   # (2) update "to" column - for cluster that node has joined
+#'   new.nxK.mat[, cluster.to] <- sapply(1:num.nodes, function(x)
+#'   {
+#'     adj[x, node.index]
+#'   })
+#' 
+#'   return(new.nxK.mat)
+#' }
 
-#****************************************************
-#' Update extended nxK (node:cluster) matrices for directed network
-#' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
-#' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
-#' @param node.index index of node being moved [scalar]
-#' @param cluster.from index of cluster that node is moved from [scalar]
-#' @param num.nodes number of nodes in network [scalar]
-#' @param adj adjacency matrix [matrix]
-#' @return Updated extended nx(K+1) matrix [matrix]
-UpdateExtendedNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index, 
-                                            cluster.from, num.nodes, adj, K)
-{
-  ## Directed: need 2 nxK matrices - Extend matrices by adding K+1th columns
-  new.nxK.mat.to <- cbind(prev.nxK.mat.to, rep(0, num.nodes))
-  new.nxK.mat.from <- cbind(prev.nxK.mat.from, rep(0, num.nodes))
-  cluster.to <- K+1
-  
-  for(node in 1:num.nodes)
-  {
-    # (1) update "from" column of both matrices - for cluster that node has left
-    new.nxK.mat.to[node, cluster.from] <- 
-      prev.nxK.mat.to[node, cluster.from] - adj[node, node.index]
-    new.nxK.mat.from[node, cluster.from] <- 
-      prev.nxK.mat.from[node, cluster.from] - adj[node.index, node]
-    
-    # (2) update "to" column of both matrices - for cluster that node has joined
-    new.nxK.mat.to[node, cluster.to] <- adj[node, node.index]
-    new.nxK.mat.from[node, cluster.to] <- adj[node.index, node]
-  }
-  return(list("edge.counts.to" = new.nxK.mat.to,
-              "edge.counts.from" = new.nxK.mat.from))
-}
+#' #****************************************************
+#' #' Update extended nxK (node:cluster) matrices for directed network
+#' #' @param prev.nxK.mat.to previous nxK "from nodes TO CLUSTERS" matrix [matrix]
+#' #' @param prev.nxK.mat.from nxK previous nxK "FROM CLUSTERS to nodes" matrix [matrix]
+#' #' @param node.index index of node being moved [scalar]
+#' #' @param cluster.from index of cluster that node is moved from [scalar]
+#' #' @param num.nodes number of nodes in network [scalar]
+#' #' @param adj adjacency matrix [matrix]
+#' #' @return Updated extended nx(K+1) matrix [matrix]
+#' UpdateExtendedNxKMatricesDirected <- function(prev.nxK.mat.to, prev.nxK.mat.from, node.index, 
+#'                                             cluster.from, num.nodes, adj, K)
+#' {
+#'   ## Directed: need 2 nxK matrices - Extend matrices by adding K+1th columns
+#'   new.nxK.mat.to <- cbind(prev.nxK.mat.to, rep(0, num.nodes))
+#'   new.nxK.mat.from <- cbind(prev.nxK.mat.from, rep(0, num.nodes))
+#'   cluster.to <- K+1
+#'   
+#'   for(node in 1:num.nodes)
+#'   {
+#'     # (1) update "from" column of both matrices - for cluster that node has left
+#'     new.nxK.mat.to[node, cluster.from] <- 
+#'       prev.nxK.mat.to[node, cluster.from] - adj[node, node.index]
+#'     new.nxK.mat.from[node, cluster.from] <- 
+#'       prev.nxK.mat.from[node, cluster.from] - adj[node.index, node]
+#'     
+#'     # (2) update "to" column of both matrices - for cluster that node has joined
+#'     new.nxK.mat.to[node, cluster.to] <- adj[node, node.index]
+#'     new.nxK.mat.from[node, cluster.to] <- adj[node.index, node]
+#'   }
+#'   return(list("edge.counts.to" = new.nxK.mat.to,
+#'               "edge.counts.from" = new.nxK.mat.from))
+#' }
 
 
 #****************************************************
@@ -783,6 +796,15 @@ UpdateExtendedMatrices <- function(previous.matrices, node.index, cluster.from,
   # Directed: update KxK edge counts, KxK max counts and both nxK matrices
   if(directed == TRUE)
   {
+    edge.counts.to <-
+      UpdateExtendedNxKMatrixDirectedTo(prev_nxK_mat_to = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.to),
+                                        node_index = node.index, cluster_from = cluster.from,
+                                        num_nodes = num.nodes, adj_mat = as.matrix(adj), K)
+    edge.counts.from <-
+      UpdateExtendedNxKMatrixDirectedFrom(prev_nxK_mat_from = as.matrix(previous.matrices$nxK.edge.counts$edge.counts.from),
+                                          node_index = node.index, cluster_from = cluster.from,
+                                          num_nodes = num.nodes, adj_mat = as.matrix(adj), K)
+    
     return(list(
       "KxK.edge.counts" = 
         UpdateExtendedKxKEdgeCountsDirected(prev.KxK.mat = previous.matrices$KxK.edge.counts, 
@@ -792,10 +814,15 @@ UpdateExtendedMatrices <- function(previous.matrices, node.index, cluster.from,
       "KxK.max.counts" = 
         UpdateExtendedKxKMaxCountsDirected(prev.max.counts.mat = previous.matrices$KxK.max.counts, 
                                            cluster.from, K, all.clusters),
-      "nxK.edge.counts" = 
-        UpdateExtendedNxKMatricesDirected(prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to,
-                                          prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from, 
-                                          node.index, cluster.from, num.nodes, adj, K)))
+
+      "nxK.edge.counts" = list("edge.counts.to" = edge.counts.to,
+                               "edge.counts.from" = edge.counts.from)))
+    
+    # R function:
+    # "nxK.edge.counts" = 
+    #   UpdateExtendedNxKMatricesDirected(prev.nxK.mat.to = previous.matrices$nxK.edge.counts$edge.counts.to,
+    #                                     prev.nxK.mat.from = previous.matrices$nxK.edge.counts$edge.counts.from, 
+    #                                     node.index, cluster.from, num.nodes, adj, K)))
   }
 }
 
@@ -1163,11 +1190,6 @@ GibbsSweepSolo <- function(all.clusters, alpha, beta1, beta2, num.nodes, previou
 GibbsSweepIntegrated <- function(all.clusters, alpha, beta1, beta2, num.nodes, 
                                  previous.matrices, adj, directed)
 {
-  # setup initialisation vectors/matrices
-  # previous.matrices <- suppressMessages(InitialSetupList(all.clusters, num.nodes, adj, 
-  #                                                        alpha, beta1, beta2, 
-  #                                                        K = length(all.clusters), directed))
-
   # Perform deterministic scan but with a random order
   random.nodes.order <- sample(1:num.nodes)
   

@@ -20,15 +20,13 @@ adj <- as_adj(sbm)
 all.clusters <- start.clusters
 global.num.clusters <<- length(all.clusters) # updated in SplitMerge()
 
-## TO DO: define tuning parameters below for each prior
-
 ## Tuning parameters
 alpha <- 1 # Dirichlet process parameter
 beta1 <- 1 # Flat uniform priors (McDaid: conjugate priors on the parameter for each cluster)
 beta2 <- 1
 N <- 20   # no. particles: (Bouchard uses 20)
 resampling.threshold <- 0.5
-n.iters <- 100000
+n.iters <- 200000
 as.probability <- 0.0 # probability of ancester sampling step 
 gibbs.frequency <- 2 # frequency of performing Gibbs sweep
 prior <<- "dirichlet.process" # choose from "dirichlet.process" or "mcdaid"
@@ -45,6 +43,7 @@ previous.matrices <- suppressMessages(InitialSetupList(all.clusters = start.clus
 ## Perform PSGMs/Gibbs split merge algorithm
 num.clusters <- rep(0, n.iters)
 clustering.list <- sapply(1:n.iters, function(x){list(x)})
+previous.matrices.record <- sapply(1:n.iters, function(x){list(x)})
 total.cost <- 0
 start <- proc.time()
 for(i in 1:n.iters)
@@ -58,13 +57,9 @@ for(i in 1:n.iters)
     previous.matrices <- PGSMs$previous.matrices
     total.cost <- total.cost + PGSMs$num.nodes.in.c.bar * length(all.clusters) * N 
     
-    previous.matrices$num.nodes.in.clusters
-    previous.matrices$KxK.edge.counts
-    previous.matrices$KxK.max.counts
-    all.clusters
-    
     # Record output  
     clustering.list[[i]] <- all.clusters
+    previous.matrices.record[[i]] <- previous.matrices
     num.clusters[i] <- length(all.clusters)
     print(num.clusters[i])
     if(i %% 10 == 0) {cat(paste0("iteration: ", i, "\n"))}
@@ -79,13 +74,9 @@ for(i in 1:n.iters)
     previous.matrices <- run.Gibbs$previous.matrices
     total.cost <- total.cost + num.nodes * (length(all.clusters))^2 
     
-    previous.matrices$num.nodes.in.clusters
-    previous.matrices$KxK.edge.counts
-    previous.matrices$KxK.max.counts
-    all.clusters
-    
     # Record output  
     clustering.list[[i]] <- all.clusters
+    previous.matrices.record[[i]] <- previous.matrices
     num.clusters[i] <- length(all.clusters)
     print(num.clusters[i])
     if(i %% 10 == 0) {cat(paste0("iteration: ", i, "\n"))}
